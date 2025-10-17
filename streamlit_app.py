@@ -1,11 +1,17 @@
 import streamlit as st
-import google.generativeai as genai
 from PIL import Image, ImageDraw, ImageFont
 import io
 import json
 import os
 from datetime import datetime
 import base64
+
+# Tentative d'import de Gemini (optionnel)
+try:
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
 
 # Configuration de la page
 st.set_page_config(page_title="Messagerie Photo", layout="centered")
@@ -21,18 +27,46 @@ if 'user_passwords' not in st.session_state:
     st.session_state.user_passwords = ["motdepasse123"]  # Mot de passe par défaut pour l'utilisateur
 
 # Configuration Gemini
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+GEMINI_API_KEY = ""
+if GEMINI_AVAILABLE:
+    GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, 'secrets') else ""
+    if GEMINI_API_KEY:
+        genai.configure(api_key=GEMINI_API_KEY)
 
 def verify_human_body_in_photo(image):
     """Vérifie si la photo contient une partie du corps humain avec Gemini"""
+    if not GEMINI_AVAILABLE:
+        st.warning("⚠️ Gemini non installé. Vérification désactivée. Installez avec: pip install google-generativeai")
+        return True
+    
     if not GEMINI_API_KEY:
         st.warning("⚠️ API Gemini non configurée. Vérification désactivée.")
         return True
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Essayer différents modèles Gemini disponibles (versions les plus récentes d'abord)
+        model_names = [
+            'gemini-2.0-flash-exp',
+            'gemini-exp-1206', 
+            'gemini-2.0-flash',
+            'gemini-1.5-flash-latest', 
+            'gemini-1.5-pro-latest', 
+            'gemini-1.5-flash',
+            'gemini-pro-vision', 
+            'gemini-pro'
+        ]
+        
+        model = None
+        for model_name in model_names:
+            try:
+                model = genai.GenerativeModel(model_name)
+                break
+            except:
+                continue
+        
+        if model is None:
+            st.warning("⚠️ Aucun modèle Gemini disponible. Vérification désactivée.")
+            return True
         
         # Conversion de l'image pour Gemini
         img_byte_arr = io.BytesIO()
@@ -53,7 +87,8 @@ def verify_human_body_in_photo(image):
         
     except Exception as e:
         st.error(f"Erreur lors de la vérification: {str(e)}")
-        return False
+        st.info("💡 Vérification désactivée, toutes les photos sont acceptées.")
+        return True
 
 def add_text_to_image(image, text):
     """Ajoute du texte lisible sur l'image"""
