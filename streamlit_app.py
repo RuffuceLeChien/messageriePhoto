@@ -104,37 +104,76 @@ def verify_human_body_in_photo(image):
         return True
 
 def add_text_to_image(image, text):
-    """Ajoute du texte lisible sur l'image"""
+    """Ajoute du texte lisible sur l'image (support complet Unicode et emojis)"""
     img_copy = image.copy()
     draw = ImageDraw.Draw(img_copy)
     
     # Taille de l'image
     width, height = img_copy.size
     
-    # Essayer d'utiliser une police, sinon utiliser la police par défaut
-    try:
-        font_size = int(height * 0.06)  # 6% de la hauteur
-        font = ImageFont.truetype("arial.ttf", font_size)
-    except:
-        font = ImageFont.load_default()
+    # Essayer d'utiliser des polices avec support Unicode complet et emojis
+    font = None
+    font_size = int(height * 0.06)  # 6% de la hauteur
+    
+    # Liste de polices avec support emoji (par ordre de préférence)
+    font_paths = [
+        # Windows
+        "C:/Windows/Fonts/seguiemj.ttf",  # Segoe UI Emoji
+        "C:/Windows/Fonts/NotoColorEmoji.ttf",
+        "C:/Windows/Fonts/seguisym.ttf",  # Segoe UI Symbol
+        "C:/Windows/Fonts/arial.ttf",
+        # macOS
+        "/System/Library/Fonts/Apple Color Emoji.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        # Linux
+        "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    ]
+    
+    for font_path in font_paths:
+        try:
+            if os.path.exists(font_path):
+                font = ImageFont.truetype(font_path, font_size)
+                break
+        except:
+            continue
+    
+    # Si aucune police n'est trouvée, utiliser la police par défaut
+    if font is None:
+        try:
+            font = ImageFont.truetype("arial.ttf", font_size)
+        except:
+            font = ImageFont.load_default()
     
     # Calculer la position du texte (en bas de l'image)
-    bbox = draw.textbbox((0, 0), text, font=font)
-    text_width = bbox[2] - bbox[0]
-    text_height = bbox[3] - bbox[1]
+    # Utiliser textbbox pour obtenir les dimensions exactes
+    try:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+    except:
+        # Fallback si textbbox ne fonctionne pas
+        text_width = len(text) * (font_size // 2)
+        text_height = font_size
     
     x = (width - text_width) // 2
     y = height - text_height - 20
     
     # Ajouter un rectangle semi-transparent pour la lisibilité
-    padding = 10
+    padding = 15
     draw.rectangle(
         [x - padding, y - padding, x + text_width + padding, y + text_height + padding],
         fill=(0, 0, 0, 200)
     )
     
     # Ajouter le texte en blanc pour une bonne lisibilité
-    draw.text((x, y), text, fill=(255, 255, 255), font=font)
+    # Utiliser embedded_color=True pour les emojis si disponible
+    try:
+        draw.text((x, y), text, fill=(255, 255, 255), font=font, embedded_color=True)
+    except:
+        draw.text((x, y), text, fill=(255, 255, 255), font=font)
     
     return img_copy
 
