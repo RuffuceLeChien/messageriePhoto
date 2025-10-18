@@ -14,6 +14,14 @@ try:
 except ImportError:
     GEMINI_AVAILABLE = False
 
+# Tentative d'import de OpenCV pour détection de visage
+try:
+    import cv2
+    import numpy as np
+    CV2_AVAILABLE = True
+except ImportError:
+    CV2_AVAILABLE = False
+
 # Configuration de la page
 st.set_page_config(page_title="Messagerie Photo", layout="centered")
 
@@ -201,7 +209,93 @@ if 'current_user' not in st.session_state:
 if 'notification_enabled' not in st.session_state:
     st.session_state.notification_enabled = False
 
-def verify_human_body_in_photo(image):
+def verify_human_body_simple(image):
+    """Vérifie la présence d'un corps humain avec OpenCV (sans IA)"""
+    if not CV2_AVAILABLE:
+        st.warning("⚠️ OpenCV non installé. Vérification désactivée.")
+        return True
+    
+    try:
+        # Convertir PIL Image en numpy array pour OpenCV
+        img_array = np.array(image)
+        
+        # Convertir RGB en BGR (format OpenCV)
+        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+        
+        # Convertir en niveaux de gris
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        
+        detections = []
+        
+        # 1. Détection de visages (frontal)
+        try:
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+            if len(faces) > 0:
+                detections.append(f"{len(faces)} visage(s)")
+        except:
+            pass
+        
+        # 2. Détection de visages (profil)
+        try:
+            profile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_profileface.xml')
+            profiles = profile_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+            if len(profiles) > 0:
+                detections.append(f"{len(profiles)} profil(s)")
+        except:
+            pass
+        
+        # 3. Détection du corps entier
+        try:
+            body_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_fullbody.xml')
+            bodies = body_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(50, 50))
+            if len(bodies) > 0:
+                detections.append(f"{len(bodies)} corps")
+        except:
+            pass
+        
+        # 4. Détection du haut du corps
+        try:
+            upperbody_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_upperbody.xml')
+            upperbodies = upperbody_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(50, 50))
+            if len(upperbodies) > 0:
+                detections.append(f"{len(upperbodies)} haut du corps")
+        except:
+            pass
+        
+        # 5. Détection du bas du corps
+        try:
+            lowerbody_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_lowerbody.xml')
+            lowerbodies = lowerbody_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
+            if len(lowerbodies) > 0:
+                detections.append(f"{len(lowerbodies)} bas du corps")
+        except:
+            pass
+        
+        # 6. Détection des yeux (indicateur de présence humaine)
+        try:
+            eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+            eyes = eye_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(20, 20))
+            # Au moins 2 yeux pour compter comme détection valide
+            if len(eyes) >= 2:
+                detections.append(f"{len(eyes)} yeux")
+        except:
+            pass
+        
+        # Résultat
+        has_body_part = len(detections) > 0
+        
+        if has_body_part:
+            detection_str = ", ".join(detections)
+            st.success(f"✅ **Détection :** {detection_str}")
+        else:
+            st.warning("⚠️ **Aucune partie du corps détectée**")
+        
+        return has_body_part
+        
+    except Exception as e:
+        st.error(f"Erreur détection: {str(e)}")
+        return True
     """Vérifie si la photo contient une partie du corps humain avec Gemini"""
     if not GEMINI_AVAILABLE or not GEMINI_API_KEY:
         return True
@@ -454,59 +548,14 @@ def main_app():
     if camera_photo is not None:
         image = Image.open(camera_photo)
         
-        # Vérification du corps humain
+        # Vérification du corps humain avec détection simple
         has_human = True
-        gemini_response = ""
         
-        if GEMINI_AVAILABLE and GEMINI_API_KEY:
+        if CV2_AVAILABLE:
             with st.spinner("🔍 Vérification de la photo en cours..."):
-                # Appeler la vérification
-                try:
-                    model_names = ['gemini-2.0-flash-exp', 'gemini-exp-1206', 'gemini-2.0-flash', 'gemini-1.5-flash-latest']
-                    model = None
-                    for model_name in model_names:
-                        try:
-                            model = genai.GenerativeModel(model_name)
-                            break
-                        except:
-                            continue
-                    
-                    if model:
-                        img_byte_arr = io.BytesIO()
-                        image.save(img_byte_arr, format='PNG')
-                        img_byte_arr.seek(0)
-                        
-                        prompt = """Regarde attentivement cette image. Est-ce qu'elle contient une partie visible du corps humain (visage, tête, main, bras, jambe, pied, doigt, ou n'importe quelle autre partie du corps humain) ?
-
-Réponds UNIQUEMENT par un seul mot : OUI ou NON
-
-Si tu vois au moins une partie du corps humain, réponds : OUI
-Si tu ne vois AUCUNE partie du corps humain, réponds : NON"""
-                        
-                        response = model.generate_content([prompt, Image.open(img_byte_arr)])
-                        gemini_response = response.text.strip().upper()
-                        
-                        # Vérifier la réponse
-                        if "NON" in gemini_response or "NO" in gemini_response:
-                            has_human = False
-                        elif "OUI" in gemini_response or "YES" in gemini_response:
-                            has_human = True
-                        
-                        # Suppression RGPD
-                        try:
-                            model.generate_content("DELETE_REQUEST: Veuillez confirmer la suppression de toutes les données d'image précédemment analysées de vos serveurs conformément au RGPD.")
-                        except:
-                            pass
-                except Exception as e:
-                    st.error(f"Erreur vérification: {str(e)}")
-                    has_human = True
+                has_human = verify_human_body_simple(image)
         else:
-            st.warning("⚠️ Vérification désactivée (Gemini non configuré)")
-        
-        # Afficher les résultats de debug
-        if gemini_response:
-            st.info(f"🔍 **Debug - Réponse Gemini :** `{gemini_response}`")
-            st.info(f"🔍 **Debug - Résultat :** `has_human = {has_human}`")
+            st.warning("⚠️ Vérification désactivée (OpenCV non installé)")
         
         if not has_human:
             st.error("❌ La photo doit contenir une partie du corps humain. Veuillez reprendre la photo.")
