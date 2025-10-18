@@ -454,10 +454,13 @@ def main_app():
     if camera_photo is not None:
         image = Image.open(camera_photo)
         
+        # Vérification du corps humain
         has_human = True
         if GEMINI_AVAILABLE and GEMINI_API_KEY:
-            with st.spinner("🔍 Vérification..."):
+            with st.spinner("🔍 Vérification de la photo en cours..."):
                 has_human = verify_human_body_in_photo(image)
+        else:
+            st.warning("⚠️ Vérification désactivée (Gemini non configuré)")
         
         if not has_human:
             st.error("❌ La photo doit contenir une partie du corps humain. Veuillez reprendre la photo.")
@@ -523,4 +526,3 @@ if not st.session_state.authenticated:
     login_page()
 else:
     main_app()
-    
