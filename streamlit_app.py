@@ -366,204 +366,112 @@ def verify_human_body_in_photo(image):
 
 def add_text_to_image(image, text):
     """Ajoute du texte ultra stylé et haute résolution sur l'image"""
-    if not text or text.strip() == "":
+    if not text or len(text.strip()) == 0:
         return image
     
-    # Résolution 3x pour un rendu parfait
-    scale_factor = 3
-    img_copy = image.copy()
+    text = text.strip()
     
-    # Améliorer la qualité de l'image
-    enhancer = ImageEnhance.Sharpness(img_copy)
-    img_copy = enhancer.enhance(1.5)
+    # Travailler en haute résolution
+    scale = 2
+    img = image.copy().convert('RGB')
+    w, h = img.size
+    img = img.resize((w * scale, h * scale), Image.LANCZOS)
     
-    original_size = img_copy.size
-    img_copy = img_copy.resize((original_size[0] * scale_factor, original_size[1] * scale_factor), Image.LANCZOS)
+    # Créer un calque pour le texte
+    overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
     
-    # Créer un layer RGBA pour dessiner
-    txt_layer = Image.new('RGBA', img_copy.size, (255, 255, 255, 0))
-    draw = ImageDraw.Draw(txt_layer, 'RGBA')
-    width, height = img_copy.size
+    width, height = img.size
     
-    # Taille de police optimisée et proportionnelle
-    base_font_size = int(height * 0.06)
-    
-    # Charger police avec support emoji et Unicode complet
+    # Charger une grosse police
+    font_size = int(height * 0.08)  # 8% de la hauteur = GROS
     font = None
-    font_paths = [
-        # Windows
-        ("C:/Windows/Fonts/seguiemj.ttf", True),  # Segoe UI Emoji
-        ("C:/Windows/Fonts/segoeui.ttf", False),  # Segoe UI
-        # macOS
-        ("/System/Library/Fonts/Apple Color Emoji.ttc", True),
-        ("/System/Library/Fonts/SFNS.ttf", False),
-        ("/Library/Fonts/Arial.ttf", False),
-        # Linux
-        ("/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf", True),
-        ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", False),
+    
+    # Essayer de charger une police système
+    font_attempts = [
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     ]
     
-    has_emoji_support = False
-    for font_path, emoji_support in font_paths:
+    for font_path in font_attempts:
         try:
             if os.path.exists(font_path):
-                font = ImageFont.truetype(font_path, base_font_size)
-                has_emoji_support = emoji_support
+                font = ImageFont.truetype(font_path, font_size)
+                print(f"Police chargée: {font_path}")
                 break
         except Exception as e:
+            print(f"Erreur chargement police {font_path}: {e}")
             continue
     
-    # Fallback
+    # Si aucune police trouvée, en créer une grande par défaut
     if font is None:
-        try:
-            font = ImageFont.truetype("DejaVuSans.ttf", base_font_size)
-        except:
-            # Utiliser une taille plus grande pour la police par défaut
-            font = ImageFont.load_default()
-            base_font_size = 40  # Taille fixe pour police par défaut
+        print("Utilisation police par défaut")
+        # On va dessiner le texte plus gros manuellement
+        font_size = 80  # Taille fixe grande
     
-    # Diviser le texte en lignes si trop long
-    max_width = width * 0.85
-    words = text.split()
-    lines = []
-    current_line = ""
+    # Mesurer le texte
+    if font:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+    else:
+        # Estimation pour police par défaut
+        text_w = len(text) * font_size * 0.6
+        text_h = font_size
     
-    for word in words:
-        test_line = current_line + " " + word if current_line else word
-        try:
-            bbox = draw.textbbox((0, 0), test_line, font=font)
-            test_width = bbox[2] - bbox[0]
-        except:
-            test_width = len(test_line) * (base_font_size * 0.6)
-        
-        if test_width <= max_width:
-            current_line = test_line
+    # Position (centré en bas)
+    padding = 40
+    x = (width - text_w) // 2
+    y = height - text_h - padding * 3
+    
+    # Fond rectangle
+    bg_padding = 30
+    bg_rect = [
+        x - bg_padding,
+        y - bg_padding,
+        x + text_w + bg_padding,
+        y + text_h + bg_padding
+    ]
+    
+    # Dessiner ombre
+    shadow_offset = 10
+    shadow_rect = [r + shadow_offset for r in bg_rect]
+    draw.rounded_rectangle(shadow_rect, radius=25, fill=(0, 0, 0, 180))
+    
+    # Dessiner fond noir
+    draw.rounded_rectangle(bg_rect, radius=25, fill=(20, 20, 20, 240))
+    
+    # Bordure blanche
+    draw.rounded_rectangle(bg_rect, radius=25, outline=(255, 255, 255, 200), width=4)
+    
+    # Dessiner texte blanc avec ombre
+    shadow_color = (0, 0, 0, 255)
+    text_color = (255, 255, 255, 255)
+    
+    # Ombre du texte
+    for offset in [(3, 3), (-3, 3), (3, -3), (-3, -3), (0, 4), (4, 0)]:
+        if font:
+            draw.text((x + offset[0], y + offset[1]), text, font=font, fill=shadow_color)
         else:
-            if current_line:
-                lines.append(current_line)
-            current_line = word
+            draw.text((x + offset[0], y + offset[1]), text, fill=shadow_color)
     
-    if current_line:
-        lines.append(current_line)
+    # Texte principal
+    if font:
+        draw.text((x, y), text, font=font, fill=text_color)
+    else:
+        draw.text((x, y), text, fill=text_color)
     
-    # Calculer hauteur totale du texte
-    line_height = base_font_size * 1.3
-    total_text_height = len(lines) * line_height
+    # Combiner avec l'image
+    img = img.convert('RGBA')
+    img = Image.alpha_composite(img, overlay)
+    img = img.convert('RGB')
     
-    # Calculer la plus grande largeur de ligne
-    max_line_width = 0
-    for line in lines:
-        try:
-            bbox = draw.textbbox((0, 0), line, font=font)
-            line_width = bbox[2] - bbox[0]
-        except:
-            line_width = len(line) * (base_font_size * 0.6)
-        max_line_width = max(max_line_width, line_width)
+    # Retour à taille normale
+    img = img.resize((w, h), Image.LANCZOS)
     
-    # Positionnement (en bas, centré)
-    padding_h = base_font_size * 0.8
-    padding_v = base_font_size * 0.6
-    
-    bg_x1 = (width - max_line_width) / 2 - padding_h
-    bg_y1 = height - total_text_height - padding_v * 2 - base_font_size
-    bg_x2 = (width + max_line_width) / 2 + padding_h
-    bg_y2 = height - base_font_size + padding_v
-    
-    # Ombre portée large et douce
-    shadow_offset = 8
-    shadow_layer = Image.new('RGBA', img_copy.size, (255, 255, 255, 0))
-    shadow_draw = ImageDraw.Draw(shadow_layer)
-    
-    shadow_draw.rounded_rectangle(
-        [bg_x1 + shadow_offset, bg_y1 + shadow_offset, bg_x2 + shadow_offset, bg_y2 + shadow_offset],
-        radius=base_font_size // 2,
-        fill=(0, 0, 0, 140)
-    )
-    shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(20))
-    txt_layer = Image.alpha_composite(txt_layer, shadow_layer)
-    draw = ImageDraw.Draw(txt_layer, 'RGBA')
-    
-    # Fond principal avec dégradé simulé (plusieurs couches)
-    for i in range(4):
-        alpha = 245 - i * 15
-        color_offset = i * 3
-        draw.rounded_rectangle(
-            [bg_x1 + i, bg_y1 + i, bg_x2 - i, bg_y2 - i],
-            radius=base_font_size // 2 - i,
-            fill=(18 + color_offset, 18 + color_offset, 25 + color_offset, alpha)
-        )
-    
-    # Bordure extérieure lumineuse
-    draw.rounded_rectangle(
-        [bg_x1, bg_y1, bg_x2, bg_y2],
-        radius=base_font_size // 2,
-        outline=(255, 255, 255, 100),
-        width=4
-    )
-    
-    # Bordure intérieure subtile
-    draw.rounded_rectangle(
-        [bg_x1 + 4, bg_y1 + 4, bg_x2 - 4, bg_y2 - 4],
-        radius=base_font_size // 2 - 4,
-        outline=(255, 255, 255, 50),
-        width=2
-    )
-    
-    # Dessiner chaque ligne de texte
-    current_y = bg_y1 + padding_v
-    
-    for line in lines:
-        # Calculer largeur de la ligne pour centrage
-        try:
-            bbox = draw.textbbox((0, 0), line, font=font)
-            line_width = bbox[2] - bbox[0]
-        except:
-            line_width = len(line) * (base_font_size * 0.6)
-        
-        text_x = (width - line_width) / 2
-        text_y = current_y
-        
-        # Ombre du texte (multi-directionnelle pour plus de profondeur)
-        shadow_offsets = [
-            (0, 4), (0, -2), (4, 0), (-4, 0),
-            (3, 3), (-3, 3), (3, -3), (-3, -3),
-            (2, 2), (-2, 2), (2, -2), (-2, -2)
-        ]
-        
-        for offset_x, offset_y in shadow_offsets:
-            try:
-                if has_emoji_support:
-                    draw.text((text_x + offset_x, text_y + offset_y), line, 
-                             fill=(0, 0, 0, 160), font=font, embedded_color=False)
-                else:
-                    draw.text((text_x + offset_x, text_y + offset_y), line, 
-                             fill=(0, 0, 0, 160), font=font)
-            except:
-                draw.text((text_x + offset_x, text_y + offset_y), line, 
-                         fill=(0, 0, 0, 160), font=font)
-        
-        # Texte principal en blanc éclatant
-        try:
-            if has_emoji_support:
-                draw.text((text_x, text_y), line, fill=(255, 255, 255, 255), 
-                         font=font, embedded_color=True)
-            else:
-                draw.text((text_x, text_y), line, fill=(255, 255, 255, 255), font=font)
-        except Exception as e:
-            # Fallback sans embedded_color
-            draw.text((text_x, text_y), line, fill=(255, 255, 255, 255), font=font)
-        
-        current_y += line_height
-    
-    # Combiner le texte avec l'image
-    img_copy = img_copy.convert('RGBA')
-    img_copy = Image.alpha_composite(img_copy, txt_layer)
-    
-    # Redimensionner à la taille originale avec antialiasing maximum
-    img_copy = img_copy.resize(original_size, Image.LANCZOS)
-    img_copy = img_copy.convert('RGB')
-    
-    return img_copy
+    return img
 
 def save_message(image, text, original_image, sender):
     """Sauvegarde un message avec l'image"""
@@ -710,8 +618,11 @@ def main_app():
             text_input = st.text_input("💬 Message", key="text_msg", placeholder="Ajoutez un message (optionnel)...", label_visibility="collapsed")
             
             if st.button("💕 Envoyer", type="primary", use_container_width=True):
-                image_with_text = add_text_to_image(image, text_input) if text_input else image
-                save_message(image_with_text, text_input, image, st.session_state.current_user)
+                if text_input and text_input.strip():
+                    image_with_text = add_text_to_image(image, text_input.strip())
+                else:
+                    image_with_text = image
+                save_message(image_with_text, text_input if text_input else "", image, st.session_state.current_user)
                 st.rerun()
     
     st.markdown('</div>', unsafe_allow_html=True)
