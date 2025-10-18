@@ -204,7 +204,7 @@ if 'notification_enabled' not in st.session_state:
 def verify_human_body_in_photo(image):
     """Vérifie si la photo contient une partie du corps humain avec Gemini"""
     if not GEMINI_AVAILABLE or not GEMINI_API_KEY:
-        return True
+        return False
     
     try:
         model_names = ['gemini-2.0-flash-exp', 'gemini-exp-1206', 'gemini-2.0-flash', 'gemini-1.5-flash-latest']
