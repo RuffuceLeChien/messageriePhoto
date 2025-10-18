@@ -523,3 +523,4 @@ if not st.session_state.authenticated:
     login_page()
 else:
     main_app()
+    
