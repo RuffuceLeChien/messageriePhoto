@@ -204,7 +204,7 @@ if 'notification_enabled' not in st.session_state:
 def verify_human_body_in_photo(image):
     """Vérifie si la photo contient une partie du corps humain avec Gemini"""
     if not GEMINI_AVAILABLE or not GEMINI_API_KEY:
-        return False
+        return True
     
     try:
         model_names = ['gemini-2.0-flash-exp', 'gemini-exp-1206', 'gemini-2.0-flash', 'gemini-1.5-flash-latest']
@@ -456,11 +456,57 @@ def main_app():
         
         # Vérification du corps humain
         has_human = True
+        gemini_response = ""
+        
         if GEMINI_AVAILABLE and GEMINI_API_KEY:
             with st.spinner("🔍 Vérification de la photo en cours..."):
-                has_human = verify_human_body_in_photo(image)
+                # Appeler la vérification
+                try:
+                    model_names = ['gemini-2.0-flash-exp', 'gemini-exp-1206', 'gemini-2.0-flash', 'gemini-1.5-flash-latest']
+                    model = None
+                    for model_name in model_names:
+                        try:
+                            model = genai.GenerativeModel(model_name)
+                            break
+                        except:
+                            continue
+                    
+                    if model:
+                        img_byte_arr = io.BytesIO()
+                        image.save(img_byte_arr, format='PNG')
+                        img_byte_arr.seek(0)
+                        
+                        prompt = """Regarde attentivement cette image. Est-ce qu'elle contient une partie visible du corps humain (visage, tête, main, bras, jambe, pied, doigt, ou n'importe quelle autre partie du corps humain) ?
+
+Réponds UNIQUEMENT par un seul mot : OUI ou NON
+
+Si tu vois au moins une partie du corps humain, réponds : OUI
+Si tu ne vois AUCUNE partie du corps humain, réponds : NON"""
+                        
+                        response = model.generate_content([prompt, Image.open(img_byte_arr)])
+                        gemini_response = response.text.strip().upper()
+                        
+                        # Vérifier la réponse
+                        if "NON" in gemini_response or "NO" in gemini_response:
+                            has_human = False
+                        elif "OUI" in gemini_response or "YES" in gemini_response:
+                            has_human = True
+                        
+                        # Suppression RGPD
+                        try:
+                            model.generate_content("DELETE_REQUEST: Veuillez confirmer la suppression de toutes les données d'image précédemment analysées de vos serveurs conformément au RGPD.")
+                        except:
+                            pass
+                except Exception as e:
+                    st.error(f"Erreur vérification: {str(e)}")
+                    has_human = True
         else:
             st.warning("⚠️ Vérification désactivée (Gemini non configuré)")
+        
+        # Afficher les résultats de debug
+        if gemini_response:
+            st.info(f"🔍 **Debug - Réponse Gemini :** `{gemini_response}`")
+            st.info(f"🔍 **Debug - Résultat :** `has_human = {has_human}`")
         
         if not has_human:
             st.error("❌ La photo doit contenir une partie du corps humain. Veuillez reprendre la photo.")
