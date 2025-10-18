@@ -24,22 +24,6 @@ GITHUB_REPO = st.secrets.get("GITHUB_REPO", "") if hasattr(st, 'secrets') else "
 GITHUB_BRANCH = "main"
 DATA_FILE = "messages_data.json"
 
-# Initialisation des variables de session
-if 'authenticated' not in st.session_state:
-    st.session_state.authenticated = False
-if 'is_admin' not in st.session_state:
-    st.session_state.is_admin = False
-if 'messages' not in st.session_state:
-    st.session_state.messages = load_messages()
-if 'user_passwords' not in st.session_state:
-    st.session_state.user_passwords = load_passwords()
-if 'last_message_count' not in st.session_state:
-    st.session_state.last_message_count = 0
-if 'current_user' not in st.session_state:
-    st.session_state.current_user = None
-if 'notification_enabled' not in st.session_state:
-    st.session_state.notification_enabled = False
-
 # Configuration Gemini
 GEMINI_API_KEY = ""
 if GEMINI_AVAILABLE:
@@ -167,6 +151,22 @@ def load_passwords():
         except:
             pass
     return ["motdepasse123"]
+
+# Initialisation des variables de session (APRÈS les définitions de fonctions)
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'is_admin' not in st.session_state:
+    st.session_state.is_admin = False
+if 'messages' not in st.session_state:
+    st.session_state.messages = load_messages()
+if 'user_passwords' not in st.session_state:
+    st.session_state.user_passwords = load_passwords()
+if 'last_message_count' not in st.session_state:
+    st.session_state.last_message_count = 0
+if 'current_user' not in st.session_state:
+    st.session_state.current_user = None
+if 'notification_enabled' not in st.session_state:
+    st.session_state.notification_enabled = False
 
 def verify_human_body_in_photo(image):
     """Vérifie si la photo contient une partie du corps humain avec Gemini"""
