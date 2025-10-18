@@ -22,6 +22,13 @@ try:
 except ImportError:
     CV2_AVAILABLE = False
 
+# Tentative d'import de MediaPipe pour détection de mains et corps
+try:
+    import mediapipe as mp
+    MEDIAPIPE_AVAILABLE = True
+except ImportError:
+    MEDIAPIPE_AVAILABLE = False
+
 # Configuration de la page
 st.set_page_config(page_title="Messagerie Photo", layout="centered")
 
@@ -210,7 +217,7 @@ if 'notification_enabled' not in st.session_state:
     st.session_state.notification_enabled = False
 
 def verify_human_body_simple(image):
-    """Vérifie la présence d'un corps humain avec OpenCV (sans IA)"""
+    """Vérifie la présence d'un corps humain avec OpenCV + MediaPipe"""
     if not CV2_AVAILABLE:
         st.warning("⚠️ OpenCV non installé. Vérification désactivée.")
         return True
@@ -222,10 +229,12 @@ def verify_human_body_simple(image):
         # Convertir RGB en BGR (format OpenCV)
         img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
         
-        # Convertir en niveaux de gris
+        # Convertir en niveaux de gris pour OpenCV
         gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
         
         detections = []
+        
+        # === DÉTECTION OPENCV (Visages et Corps) ===
         
         # 1. Détection de visages (frontal)
         try:
@@ -272,15 +281,47 @@ def verify_human_body_simple(image):
         except:
             pass
         
-        # 6. Détection des yeux (indicateur de présence humaine)
+        # 6. Détection des yeux
         try:
             eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
             eyes = eye_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(20, 20))
-            # Au moins 2 yeux pour compter comme détection valide
             if len(eyes) >= 2:
                 detections.append(f"{len(eyes)} yeux")
         except:
             pass
+        
+        # === DÉTECTION MEDIAPIPE (Mains, Pose, Visage) ===
+        
+        if MEDIAPIPE_AVAILABLE:
+            # Détection des mains
+            try:
+                mp_hands = mp.solutions.hands
+                hands_detector = mp_hands.Hands(
+                    static_image_mode=True,
+                    max_num_hands=2,
+                    min_detection_confidence=0.5
+                )
+                results_hands = hands_detector.process(img_array)
+                if results_hands.multi_hand_landmarks:
+                    num_hands = len(results_hands.multi_hand_landmarks)
+                    detections.append(f"{num_hands} main(s)")
+                hands_detector.close()
+            except:
+                pass
+            
+            # Détection de la pose (corps, bras, jambes)
+            try:
+                mp_pose = mp.solutions.pose
+                pose_detector = mp_pose.Pose(
+                    static_image_mode=True,
+                    min_detection_confidence=0.5
+                )
+                results_pose = pose_detector.process(img_array)
+                if results_pose.pose_landmarks:
+                    detections.append("pose corporelle")
+                pose_detector.close()
+            except:
+                pass
         
         # Résultat
         has_body_part = len(detections) > 0

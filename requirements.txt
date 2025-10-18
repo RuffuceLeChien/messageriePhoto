@@ -3,3 +3,4 @@ pillow
 requests
 opencv-python-headless
 numpy
+mediapipe
