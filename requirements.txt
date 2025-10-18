@@ -1,5 +1,5 @@
 streamlit
 pillow
 requests
-opencv-python
+opencv-python-headless
 numpy
