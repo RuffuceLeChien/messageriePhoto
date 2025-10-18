@@ -1,5 +1,5 @@
 import streamlit as st
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 import io
 import json
 import os
@@ -16,11 +16,174 @@ except ImportError:
     GEMINI_AVAILABLE = False
 
 # Configuration de la page
-st.set_page_config(page_title="Messagerie Photo", layout="centered")
+st.set_page_config(
+    page_title="💕 Messagerie",
+    page_icon="💕",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# CSS personnalisé pour une interface moderne et élégante
+st.markdown("""
+<style>
+    /* Cache le header et footer Streamlit */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Style général */
+    .stApp {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    /* Conteneur principal */
+    .main .block-container {
+        max-width: 800px;
+        padding: 1rem 2rem;
+    }
+    
+    /* Style de la zone de discussion */
+    .chat-container {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 20px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        margin-bottom: 20px;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    
+    /* Messages admin (à droite) */
+    .message-admin {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 15px;
+        animation: slideInRight 0.3s ease;
+    }
+    
+    .message-admin .message-content {
+        max-width: 70%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px 20px 5px 20px;
+        padding: 5px;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+    
+    /* Messages user (à gauche) */
+    .message-user {
+        display: flex;
+        justify-content: flex-start;
+        margin-bottom: 15px;
+        animation: slideInLeft 0.3s ease;
+    }
+    
+    .message-user .message-content {
+        max-width: 70%;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        border-radius: 20px 20px 20px 5px;
+        padding: 5px;
+        box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+    }
+    
+    .message-timestamp {
+        font-size: 11px;
+        color: rgba(255,255,255,0.8);
+        margin: 5px 10px;
+        font-weight: 500;
+    }
+    
+    .message-image {
+        border-radius: 15px;
+        width: 100%;
+        display: block;
+    }
+    
+    /* Boutons d'action */
+    .message-actions {
+        display: flex;
+        gap: 5px;
+        margin-top: 5px;
+        padding: 0 5px;
+    }
+    
+    /* Zone d'envoi */
+    .send-container {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 20px;
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+        position: sticky;
+        bottom: 0;
+    }
+    
+    /* Animations */
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    /* Boutons stylés */
+    .stButton button {
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    
+    /* Input stylé */
+    .stTextInput input {
+        border-radius: 12px;
+        border: 2px solid #e0e0e0;
+        padding: 12px 15px;
+        font-size: 16px;
+    }
+    
+    .stTextInput input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Scrollbar personnalisée */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: rgba(0,0,0,0.05);
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Configuration GitHub
 GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", "") if hasattr(st, 'secrets') else ""
-GITHUB_REPO = st.secrets.get("GITHUB_REPO", "") if hasattr(st, 'secrets') else ""  # Format: "username/repo"
+GITHUB_REPO = st.secrets.get("GITHUB_REPO", "") if hasattr(st, 'secrets') else ""
 GITHUB_BRANCH = "main"
 DATA_FILE = "messages_data.json"
 
@@ -89,7 +252,6 @@ def load_messages():
             data = json.loads(file_data['content'])
             messages = []
             for msg in data.get('messages', []):
-                # Convertir les images base64 en objets PIL
                 if 'image_with_text_b64' in msg:
                     msg['image_with_text'] = Image.open(io.BytesIO(base64.b64decode(msg['image_with_text_b64'])))
                 if 'original_image_b64' in msg:
@@ -112,15 +274,14 @@ def save_messages():
                 'id': msg['id']
             }
             
-            # Convertir les images en base64
             if 'image_with_text' in msg:
                 img_bytes = io.BytesIO()
-                msg['image_with_text'].save(img_bytes, format='PNG')
+                msg['image_with_text'].save(img_bytes, format='PNG', optimize=True, quality=85)
                 msg_copy['image_with_text_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
             
             if 'original_image' in msg:
                 img_bytes = io.BytesIO()
-                msg['original_image'].save(img_bytes, format='PNG')
+                msg['original_image'].save(img_bytes, format='PNG', optimize=True, quality=85)
                 msg_copy['original_image_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
             
             messages_to_save.append(msg_copy)
@@ -130,11 +291,9 @@ def save_messages():
             'passwords': st.session_state.user_passwords
         }
         
-        # Récupérer le SHA actuel du fichier
         file_data = github_get_file(DATA_FILE)
         sha = file_data['sha'] if file_data else None
         
-        # Mettre à jour le fichier
         github_update_file(DATA_FILE, json.dumps(data, indent=2), sha, "Update messages")
         
     except Exception as e:
@@ -152,7 +311,7 @@ def load_passwords():
             pass
     return ["motdepasse123"]
 
-# Initialisation des variables de session (APRÈS les définitions de fonctions)
+# Initialisation des variables de session
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'is_admin' not in st.session_state:
@@ -170,23 +329,11 @@ if 'notification_enabled' not in st.session_state:
 
 def verify_human_body_in_photo(image):
     """Vérifie si la photo contient une partie du corps humain avec Gemini"""
-    if not GEMINI_AVAILABLE:
-        return True
-    
-    if not GEMINI_API_KEY:
+    if not GEMINI_AVAILABLE or not GEMINI_API_KEY:
         return True
     
     try:
-        model_names = [
-            'gemini-2.0-flash-exp',
-            'gemini-exp-1206', 
-            'gemini-2.0-flash',
-            'gemini-1.5-flash-latest', 
-            'gemini-1.5-pro-latest', 
-            'gemini-1.5-flash',
-            'gemini-pro-vision', 
-            'gemini-pro'
-        ]
+        model_names = ['gemini-2.0-flash-exp', 'gemini-exp-1206', 'gemini-2.0-flash', 'gemini-1.5-flash-latest']
         
         model = None
         for model_name in model_names:
@@ -203,44 +350,47 @@ def verify_human_body_in_photo(image):
         image.save(img_byte_arr, format='PNG')
         img_byte_arr.seek(0)
         
-        prompt = """Analyse cette image et réponds UNIQUEMENT par 'OUI' ou 'NON'.
-        Question: Cette image contient-elle une partie visible du corps humain (visage, tête, main, bras, jambe, pied, ou toute autre partie du corps) ?
-        Réponds uniquement: OUI ou NON"""
-        
+        prompt = "Image contains visible human body part (face, hand, arm, leg, etc.)? Answer ONLY: YES or NO"
         response = model.generate_content([prompt, Image.open(img_byte_arr)])
         result = response.text.strip().upper()
         
         try:
-            deletion_prompt = "DELETE_REQUEST: Veuillez confirmer la suppression de toutes les données d'image précédemment analysées de vos serveurs conformément au RGPD."
-            model.generate_content(deletion_prompt)
+            model.generate_content("DELETE_REQUEST: Confirm deletion of all previously analyzed image data from your servers per GDPR.")
         except:
             pass
         
-        return "OUI" in result
+        return "YES" in result or "OUI" in result
         
-    except Exception as e:
+    except:
         return True
 
 def add_text_to_image(image, text):
-    """Ajoute du texte stylé et haute résolution sur l'image"""
-    scale_factor = 2
+    """Ajoute du texte ultra stylé et haute résolution sur l'image"""
+    # Résolution 3x pour un rendu parfait
+    scale_factor = 3
     img_copy = image.copy()
+    
+    # Améliorer la qualité de l'image
+    enhancer = ImageEnhance.Sharpness(img_copy)
+    img_copy = enhancer.enhance(1.5)
+    
     original_size = img_copy.size
     img_copy = img_copy.resize((original_size[0] * scale_factor, original_size[1] * scale_factor), Image.LANCZOS)
     
     draw = ImageDraw.Draw(img_copy, 'RGBA')
     width, height = img_copy.size
     
-    font_size = int(height * 0.05)
+    # Taille de police optimisée
+    font_size = int(height * 0.055)
     
+    # Charger police avec support emoji
     font = None
     font_paths = [
         "C:/Windows/Fonts/seguiemj.ttf",
         "C:/Windows/Fonts/segoeui.ttf",
         "/System/Library/Fonts/Apple Color Emoji.ttc",
-        "/System/Library/Fonts/SFNS.ttf",
+        "/System/Library/Fonts/SF-Pro-Display-Bold.otf",
         "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     ]
     
     for font_path in font_paths:
@@ -252,11 +402,9 @@ def add_text_to_image(image, text):
             continue
     
     if font is None:
-        try:
-            font = ImageFont.truetype("arial.ttf", font_size)
-        except:
-            font = ImageFont.load_default()
+        font = ImageFont.load_default()
     
+    # Calculer dimensions du texte
     try:
         bbox = draw.textbbox((0, 0), text, font=font)
         text_width = bbox[2] - bbox[0]
@@ -265,50 +413,67 @@ def add_text_to_image(image, text):
         text_width = len(text) * (font_size // 2)
         text_height = font_size
     
-    padding = 25
+    # Positionnement
+    padding = 35
     x = (width - text_width) // 2
-    y = height - text_height - padding * 2
+    y = height - text_height - padding * 2.5
     
-    background_height = text_height + padding * 2
-    background_y = y - padding
+    background_height = text_height + padding * 1.8
+    background_y = y - padding * 0.9
     
-    shadow_offset = 4
+    # Ombre portée douce et large
+    shadow_offset = 6
     shadow = Image.new('RGBA', (width, height), (0, 0, 0, 0))
     shadow_draw = ImageDraw.Draw(shadow)
     shadow_draw.rounded_rectangle(
         [x - padding + shadow_offset, background_y + shadow_offset, 
          x + text_width + padding + shadow_offset, background_y + background_height + shadow_offset],
-        radius=20,
-        fill=(0, 0, 0, 100)
+        radius=30,
+        fill=(0, 0, 0, 130)
     )
-    shadow = shadow.filter(ImageFilter.GaussianBlur(10))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(15))
     img_copy.paste(shadow, (0, 0), shadow)
     
+    # Fond principal avec dégradé simulé
+    for i in range(3):
+        alpha_val = 240 - i * 10
+        draw.rounded_rectangle(
+            [x - padding + i, background_y + i, x + text_width + padding - i, background_y + background_height - i],
+            radius=30,
+            fill=(15 + i * 5, 15 + i * 5, 20 + i * 5, alpha_val)
+        )
+    
+    # Bordure élégante avec double trait
     draw.rounded_rectangle(
         [x - padding, background_y, x + text_width + padding, background_y + background_height],
-        radius=20,
-        fill=(20, 20, 20, 220)
+        radius=30,
+        outline=(255, 255, 255, 90),
+        width=3
     )
     
     draw.rounded_rectangle(
-        [x - padding, background_y, x + text_width + padding, background_y + background_height],
-        radius=20,
-        outline=(255, 255, 255, 60),
-        width=2
+        [x - padding + 3, background_y + 3, x + text_width + padding - 3, background_y + background_height - 3],
+        radius=27,
+        outline=(255, 255, 255, 40),
+        width=1
     )
     
-    shadow_color = (0, 0, 0, 150)
-    for offset in [(2, 2), (-2, 2), (2, -2), (-2, -2)]:
+    # Ombre du texte multi-directionnelle
+    shadow_color = (0, 0, 0, 180)
+    offsets = [(0, 3), (3, 0), (0, -3), (-3, 0), (2, 2), (-2, 2), (2, -2), (-2, -2)]
+    for offset in offsets:
         try:
             draw.text((x + offset[0], y + offset[1]), text, fill=shadow_color, font=font, embedded_color=True)
         except:
             draw.text((x + offset[0], y + offset[1]), text, fill=shadow_color, font=font)
     
+    # Texte principal avec léger effet de lumière
     try:
-        draw.text((x, y), text, fill=(255, 255, 255, 255), font=font, embedded_color=True)
+        draw.text((x, y - 1), text, fill=(255, 255, 255, 255), font=font, embedded_color=True)
     except:
-        draw.text((x, y), text, fill=(255, 255, 255, 255), font=font)
+        draw.text((x, y - 1), text, fill=(255, 255, 255, 255), font=font)
     
+    # Redimensionner avec antialiasing maximum
     img_copy = img_copy.resize(original_size, Image.LANCZOS)
     
     return img_copy
@@ -332,104 +497,75 @@ def delete_message(message_id):
     save_messages()
 
 def check_new_messages():
-    """Vérifie s'il y a de nouveaux messages et envoie une notification"""
+    """Vérifie s'il y a de nouveaux messages"""
     current_count = len(st.session_state.messages)
     
     if current_count > st.session_state.last_message_count:
         last_msg = st.session_state.messages[-1]
         
         if last_msg['sender'] != st.session_state.current_user:
-            st.toast("📬 Nouveau message reçu !", icon="📬")
-            
-            st.markdown("""
-                <script>
-                if ("Notification" in window && Notification.permission === "granted") {
-                    new Notification("Messagerie Photo", {
-                        body: "Vous avez reçu un nouveau message !",
-                        icon: "📸"
-                    });
-                }
-                </script>
-            """, unsafe_allow_html=True)
+            st.toast("💕 Nouveau message !", icon="💕")
     
     st.session_state.last_message_count = current_count
 
-def request_notification_permission():
-    """Demande la permission pour les notifications du navigateur"""
-    st.markdown("""
-        <script>
-        if ("Notification" in window && Notification.permission === "default") {
-            Notification.requestPermission();
-        }
-        </script>
-    """, unsafe_allow_html=True)
-
 def login_page():
     """Page de connexion"""
-    st.title("🔐 Connexion")
+    st.markdown("<h1 style='text-align: center; color: white; font-size: 3em; margin-top: 20vh;'>💕</h1>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: white; font-weight: 300;'>Messagerie Photo</h2>", unsafe_allow_html=True)
     
-    password = st.text_input("Entrez le code d'accès", type="password", key="login_input")
-    
-    if st.button("Se connecter"):
-        if password == "ruffucelechien":
-            st.session_state.authenticated = True
-            st.session_state.is_admin = True
-            st.session_state.current_user = "admin"
-            st.session_state.last_message_count = len(st.session_state.messages)
-            st.rerun()
-        elif password in st.session_state.user_passwords:
-            st.session_state.authenticated = True
-            st.session_state.is_admin = False
-            st.session_state.current_user = "user"
-            st.session_state.last_message_count = len(st.session_state.messages)
-            st.rerun()
-        else:
-            st.error("❌ Code incorrect")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        password = st.text_input("Code d'accès", type="password", key="login_input", label_visibility="collapsed", placeholder="Entrez votre code")
+        
+        if st.button("Se connecter", type="primary", use_container_width=True):
+            if password == "ruffucelechien":
+                st.session_state.authenticated = True
+                st.session_state.is_admin = True
+                st.session_state.current_user = "admin"
+                st.session_state.last_message_count = len(st.session_state.messages)
+                st.rerun()
+            elif password in st.session_state.user_passwords:
+                st.session_state.authenticated = True
+                st.session_state.is_admin = False
+                st.session_state.current_user = "user"
+                st.session_state.last_message_count = len(st.session_state.messages)
+                st.rerun()
+            else:
+                st.error("❌ Code incorrect")
 
 def admin_panel():
     """Panel administrateur"""
-    st.sidebar.title("👑 Panel Admin")
-    
-    st.sidebar.subheader("Gestion des mots de passe utilisateur")
-    
-    st.sidebar.write("**Mots de passe actifs:**")
-    for idx, pwd in enumerate(st.session_state.user_passwords):
-        col1, col2 = st.sidebar.columns([3, 1])
-        col1.text(pwd)
-        if col2.button("🗑️", key=f"delete_pwd_{idx}"):
-            st.session_state.user_passwords.pop(idx)
-            save_messages()
-            st.rerun()
-    
-    new_password = st.sidebar.text_input("Nouveau mot de passe", key="new_pwd")
-    if st.sidebar.button("➕ Ajouter"):
-        if new_password and new_password not in st.session_state.user_passwords:
-            st.session_state.user_passwords.append(new_password)
-            save_messages()
-            st.sidebar.success("✅ Mot de passe ajouté")
-            st.rerun()
+    with st.sidebar:
+        st.title("👑 Admin")
+        
+        st.subheader("Mots de passe")
+        
+        for idx, pwd in enumerate(st.session_state.user_passwords):
+            col1, col2 = st.columns([3, 1])
+            col1.text(pwd)
+            if col2.button("🗑️", key=f"delete_pwd_{idx}"):
+                st.session_state.user_passwords.pop(idx)
+                save_messages()
+                st.rerun()
+        
+        new_password = st.text_input("Nouveau mot de passe", key="new_pwd")
+        if st.button("➕ Ajouter"):
+            if new_password and new_password not in st.session_state.user_passwords:
+                st.session_state.user_passwords.append(new_password)
+                save_messages()
+                st.success("✅ Ajouté")
+                st.rerun()
 
 def main_app():
-    """Application principale de messagerie"""
-    st.title("📸 Messagerie Photo")
-    
-    if not st.session_state.notification_enabled:
-        request_notification_permission()
-        st.session_state.notification_enabled = True
-    
+    """Application principale"""
     check_new_messages()
     
-    st.markdown("""
-        <script>
-        setTimeout(function() {
-            window.location.reload();
-        }, 5000);
-        </script>
-    """, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([4, 1])
+    # Header
+    col1, col2 = st.columns([5, 1])
+    with col1:
+        st.markdown("<h2 style='color: white; font-weight: 300;'>💕 Messages</h2>", unsafe_allow_html=True)
     with col2:
-        if st.button("🚪 Déconnexion"):
+        if st.button("🚪", help="Déconnexion"):
             st.session_state.authenticated = False
             st.session_state.is_admin = False
             st.session_state.current_user = None
@@ -438,65 +574,63 @@ def main_app():
     if st.session_state.is_admin:
         admin_panel()
     
-    st.header("📤 Envoyer un message")
+    # Zone de discussion
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     
-    camera_photo = st.camera_input("Prenez une photo")
+    if st.session_state.messages:
+        for msg in st.session_state.messages:
+            is_admin = msg['sender'] == "admin"
+            msg_class = "message-admin" if is_admin else "message-user"
+            
+            st.markdown(f'<div class="{msg_class}">', unsafe_allow_html=True)
+            st.markdown('<div class="message-content">', unsafe_allow_html=True)
+            
+            timestamp = datetime.fromisoformat(msg['timestamp']).strftime('%H:%M')
+            st.markdown(f'<div class="message-timestamp">{timestamp}</div>', unsafe_allow_html=True)
+            
+            st.image(msg['image_with_text'], use_container_width=True)
+            
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                img_bytes = io.BytesIO()
+                msg['original_image'].save(img_bytes, format='PNG')
+                st.download_button("📥", img_bytes.getvalue(), f"photo_{msg['id']}.png", "image/png", key=f"dl_{msg['id']}")
+            with col2:
+                if st.button("🗑️", key=f"del_{msg['id']}"):
+                    delete_message(msg['id'])
+                    st.rerun()
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.markdown("<p style='text-align: center; color: #999; padding: 40px;'>Aucun message</p>", unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Zone d'envoi
+    st.markdown('<div class="send-container">', unsafe_allow_html=True)
+    
+    camera_photo = st.camera_input("📸 Prendre une photo", label_visibility="collapsed")
     
     if camera_photo is not None:
         image = Image.open(camera_photo)
         
-        has_human = True
-        if GEMINI_AVAILABLE and GEMINI_API_KEY:
-            with st.spinner("🔍 Vérification..."):
-                has_human = verify_human_body_in_photo(image)
+        has_human = verify_human_body_in_photo(image) if GEMINI_AVAILABLE and GEMINI_API_KEY else True
         
         if not has_human:
-            st.error("❌ La photo doit contenir une partie du corps humain. Veuillez reprendre la photo.")
+            st.error("❌ Photo doit contenir une partie du corps")
         else:
-            text_input = st.text_input("Texte à ajouter sur la photo (optionnel)", key="text_msg")
+            text_input = st.text_input("💬 Message", key="text_msg", placeholder="Ajoutez un message (optionnel)...", label_visibility="collapsed")
             
-            if st.button("📨 Envoyer", type="primary"):
-                if text_input:
-                    image_with_text = add_text_to_image(image, text_input)
-                else:
-                    image_with_text = image
-                
+            if st.button("💕 Envoyer", type="primary", use_container_width=True):
+                image_with_text = add_text_to_image(image, text_input) if text_input else image
                 save_message(image_with_text, text_input, image, st.session_state.current_user)
-                st.success("✅ Message envoyé!")
                 st.rerun()
     
-    st.header("💬 Messages")
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    if st.session_state.messages:
-        for idx, msg in enumerate(reversed(st.session_state.messages)):
-            with st.container():
-                col1, col2, col3 = st.columns([6, 1, 1])
-                
-                with col1:
-                    sender_emoji = "👑" if msg['sender'] == "admin" else "👤"
-                    st.write(f"{sender_emoji} **{datetime.fromisoformat(msg['timestamp']).strftime('%d/%m/%Y %H:%M')}**")
-                
-                with col2:
-                    img_bytes = io.BytesIO()
-                    msg['original_image'].save(img_bytes, format='PNG')
-                    st.download_button(
-                        label="📥",
-                        data=img_bytes.getvalue(),
-                        file_name=f"photo_{msg['id']}.png",
-                        mime="image/png",
-                        key=f"download_{msg['id']}",
-                        help="Télécharger la photo originale"
-                    )
-                
-                with col3:
-                    if st.button("🗑️", key=f"delete_{msg['id']}", help="Supprimer ce message"):
-                        delete_message(msg['id'])
-                        st.rerun()
-                
-                st.image(msg['image_with_text'], use_container_width=True)
-                st.divider()
-    else:
-        st.info("Aucun message pour le moment")
+    # Auto-refresh
+    st.markdown('<script>setTimeout(() => window.location.reload(), 10000);</script>', unsafe_allow_html=True)
 
 if not st.session_state.authenticated:
     login_page()
