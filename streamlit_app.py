@@ -7,6 +7,8 @@ from datetime import datetime
 import base64
 import requests
 
+st.write("CV2_AVAILABLE:", CV2_AVAILABLE)
+st.write("MEDIAPIPE_AVAILABLE:", MEDIAPIPE_AVAILABLE)
 # Tentative d'import de Gemini (optionnel)
 try:
     import google.generativeai as genai
