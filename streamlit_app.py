@@ -749,7 +749,7 @@ def login_page():
 
 def admin_panel():
     """Panel administrateur"""
-    st.sidebar.title("👑 Panel Admin")
+    st.sidebar.title("Panel Admin")
     
     st.sidebar.subheader("Gestion des mots de passe utilisateur")
     
@@ -772,7 +772,7 @@ def admin_panel():
 
 def main_app():
     """Application principale"""
-    st.title("💕 Messagerie Photo")
+    st.title("Messagerie Photo")
     
     check_new_messages()
     
@@ -810,7 +810,7 @@ def main_app():
         else:
             text_input = st.text_input("", key="text_msg", placeholder="💬 Ajouter un message (optionnel)...", label_visibility="collapsed")
             
-            if st.button("💕 Envoyer", type="primary", use_container_width=True):
+            if st.button("✉️ Envoyer", type="primary", use_container_width=True):
                 if text_input:
                     image_with_text = add_text_to_image(image, text_input)
                 else:
