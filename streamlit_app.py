@@ -37,28 +37,191 @@ except ImportError:
     MEDIAPIPE_AVAILABLE = False
 
 # Configuration de la page
-st.set_page_config(page_title="Messagerie Photo", layout="centered")
+st.set_page_config(page_title="💕 Messagerie", page_icon="💕", layout="centered")
 
-# CSS pour messages alignés gauche/droite
+# CSS pour un design moderne et élégant
 st.markdown("""
 <style>
+    /* Fond général avec dégradé */
+    .stApp {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    /* Conteneur principal */
+    .main .block-container {
+        padding: 2rem 1rem;
+        max-width: 900px;
+    }
+    
+    /* Titre principal */
+    h1 {
+        color: white !important;
+        text-align: center;
+        font-weight: 300 !important;
+        letter-spacing: 2px;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        margin-bottom: 2rem !important;
+    }
+    
+    /* Headers */
+    h2 {
+        color: white !important;
+        font-weight: 400 !important;
+        font-size: 1.3rem !important;
+        margin-top: 2rem !important;
+    }
+    
+    /* Messages alignés - admin à droite */
     .message-container-admin {
         display: flex;
         justify-content: flex-end;
         margin-bottom: 20px;
+        animation: slideInRight 0.3s ease;
     }
+    
+    /* Messages alignés - user à gauche */
     .message-container-user {
         display: flex;
         justify-content: flex-start;
         margin-bottom: 20px;
+        animation: slideInLeft 0.3s ease;
     }
+    
     .message-content {
         max-width: 70%;
+        background: white;
+        border-radius: 20px;
+        padding: 15px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    
+    /* Animations */
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    /* Boutons personnalisés */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 25px !important;
+        padding: 0.6rem 2rem !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.5px !important;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
+    }
+    
+    /* Bouton primaire */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+        box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4) !important;
+    }
+    
+    .stButton > button[kind="primary"]:hover {
+        box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6) !important;
+    }
+    
+    /* Input texte */
+    .stTextInput > div > div > input {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border: 2px solid rgba(255, 255, 255, 0.3) !important;
+        border-radius: 15px !important;
+        padding: 0.8rem 1rem !important;
+        color: #333 !important;
+        font-size: 1rem !important;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: #f5576c !important;
+        box-shadow: 0 0 0 3px rgba(245, 87, 108, 0.2) !important;
+    }
+    
+    /* Camera input */
+    .stCameraInput > div {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border-radius: 20px !important;
+        padding: 1rem !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important;
+    }
+    
+    /* Download button petit */
+    .stDownloadButton > button {
+        background: rgba(255, 255, 255, 0.9) !important;
+        color: #667eea !important;
+        border-radius: 10px !important;
+        padding: 0.4rem 0.8rem !important;
+        font-size: 1.2rem !important;
+        border: 2px solid #667eea !important;
+    }
+    
+    /* Messages info/warning/error */
+    .stAlert {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border-radius: 15px !important;
+        border-left: 4px solid #667eea !important;
+    }
+    
+    /* Divider */
+    hr {
+        margin: 1rem 0 !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+    }
+    
+    /* Sidebar */
+    .css-1d391kg, [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%) !important;
+    }
+    
+    .css-1d391kg h1, .css-1d391kg h2, .css-1d391kg h3,
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+        color: white !important;
+    }
+    
+    /* Images avec coins arrondis */
+    img {
+        border-radius: 15px !important;
+    }
+    
+    /* Spinner personnalisé */
+    .stSpinner > div {
+        border-top-color: #f5576c !important;
+    }
+    
+    /* Toast notifications */
+    .st-toast {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border-radius: 15px !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# CSS pour messages alignés gauche/droite
+# CSS supplémentaires pour compatibilité
 st.markdown("""
 <style>
     .message-right {
@@ -70,9 +233,6 @@ st.markdown("""
         display: flex;
         justify-content: flex-start;
         margin: 10px 0;
-    }
-    .message-content {
-        max-width: 70%;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -368,11 +528,9 @@ def verify_human_body_simple(image):
         # Résultat final
         has_body_part = len(detections) > 0
         
-        if has_body_part:
-            detection_str = ", ".join(detections)
-            st.success(f"✅ **Détection :** {detection_str}")
-        else:
-            st.warning("⚠️ **Aucune partie du corps détectée**")
+        # Afficher seulement si aucune détection
+        if not has_body_part:
+            st.error("❌ Aucune partie du corps détectée")
         
         return has_body_part
         
@@ -564,25 +722,30 @@ def check_new_messages():
 
 def login_page():
     """Page de connexion"""
-    st.title("🔐 Connexion")
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size: 4rem; margin-bottom: 1rem;'>💕</h1>", unsafe_allow_html=True)
+    st.title("Messagerie Photo")
+    st.markdown("<br>", unsafe_allow_html=True)
     
-    password = st.text_input("Entrez le code d'accès", type="password", key="login_input")
-    
-    if st.button("Se connecter"):
-        if password == "ruffucelechien":
-            st.session_state.authenticated = True
-            st.session_state.is_admin = True
-            st.session_state.current_user = "admin"
-            st.session_state.last_message_count = len(st.session_state.messages)
-            st.rerun()
-        elif password in st.session_state.user_passwords:
-            st.session_state.authenticated = True
-            st.session_state.is_admin = False
-            st.session_state.current_user = "user"
-            st.session_state.last_message_count = len(st.session_state.messages)
-            st.rerun()
-        else:
-            st.error("❌ Code incorrect")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        password = st.text_input("", type="password", key="login_input", placeholder="Code d'accès", label_visibility="collapsed")
+        
+        if st.button("Se connecter", type="primary", use_container_width=True):
+            if password == "ruffucelechien":
+                st.session_state.authenticated = True
+                st.session_state.is_admin = True
+                st.session_state.current_user = "admin"
+                st.session_state.last_message_count = len(st.session_state.messages)
+                st.rerun()
+            elif password in st.session_state.user_passwords:
+                st.session_state.authenticated = True
+                st.session_state.is_admin = False
+                st.session_state.current_user = "user"
+                st.session_state.last_message_count = len(st.session_state.messages)
+                st.rerun()
+            else:
+                st.error("❌ Code incorrect")
 
 def admin_panel():
     """Panel administrateur"""
@@ -609,24 +772,26 @@ def admin_panel():
 
 def main_app():
     """Application principale"""
-    st.title("📸 Messagerie Photo")
+    st.title("💕 Messagerie Photo")
     
     check_new_messages()
     
-    # Bouton de déconnexion
-    if st.button("🚪 Déconnexion"):
-        st.session_state.authenticated = False
-        st.session_state.is_admin = False
-        st.session_state.current_user = None
-        st.rerun()
+    # Bouton de déconnexion discret
+    col1, col2 = st.columns([5, 1])
+    with col2:
+        if st.button("🚪"):
+            st.session_state.authenticated = False
+            st.session_state.is_admin = False
+            st.session_state.current_user = None
+            st.rerun()
     
     if st.session_state.is_admin:
         admin_panel()
     
     # Section d'envoi de message
-    st.header("📤 Envoyer un message")
+    st.header("📤 Nouveau message")
     
-    camera_photo = st.camera_input("Prenez une photo")
+    camera_photo = st.camera_input("📸 Prendre une photo", label_visibility="collapsed")
     
     if camera_photo is not None:
         image = Image.open(camera_photo)
@@ -643,11 +808,9 @@ def main_app():
         if not has_human:
             st.error("❌ La photo doit contenir une partie du corps humain. Veuillez reprendre la photo.")
         else:
-            st.success("✅ Photo validée!")
+            text_input = st.text_input("", key="text_msg", placeholder="💬 Ajouter un message (optionnel)...", label_visibility="collapsed")
             
-            text_input = st.text_input("Texte à ajouter sur la photo (optionnel)")
-            
-            if st.button("📨 Envoyer", type="primary"):
+            if st.button("💕 Envoyer", type="primary", use_container_width=True):
                 if text_input:
                     image_with_text = add_text_to_image(image, text_input)
                 else:
