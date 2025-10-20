@@ -37,7 +37,7 @@ except ImportError:
     MEDIAPIPE_AVAILABLE = False
 
 # Configuration de la page
-st.set_page_config(page_title="Messagerie", page_icon="✉️", layout="centered")
+st.set_page_config(page_title="💕 Messagerie", page_icon="💕", layout="centered")
 
 # CSS pour un design moderne et élégant
 st.markdown("""
@@ -382,6 +382,10 @@ if 'current_user' not in st.session_state:
     st.session_state.current_user = None
 if 'notification_enabled' not in st.session_state:
     st.session_state.notification_enabled = False
+if 'countdown_active' not in st.session_state:
+    st.session_state.countdown_active = False
+if 'countdown_time' not in st.session_state:
+    st.session_state.countdown_time = 3
 
 def verify_human_body_simple(image):
     """Vérifie la présence d'un corps humain avec OpenCV + MediaPipe"""
@@ -723,7 +727,7 @@ def check_new_messages():
 def login_page():
     """Page de connexion"""
     st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("<h1 style='font-size: 4rem; margin-bottom: 1rem;'>📸</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size: 4rem; margin-bottom: 1rem;'>💕</h1>", unsafe_allow_html=True)
     st.title("Messagerie Photo")
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -749,7 +753,7 @@ def login_page():
 
 def admin_panel():
     """Panel administrateur"""
-    st.sidebar.title("Panel Admin")
+    st.sidebar.title("👑 Panel Admin")
     
     st.sidebar.subheader("Gestion des mots de passe utilisateur")
     
@@ -772,7 +776,7 @@ def admin_panel():
 
 def main_app():
     """Application principale"""
-    st.title("Messagerie Photo")
+    st.title("💕 Messagerie Photo")
     
     check_new_messages()
     
@@ -790,6 +794,44 @@ def main_app():
     
     # Section d'envoi de message
     st.header("📤 Nouveau message")
+    
+    # Choix du mode de capture
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📸 Photo instantanée", use_container_width=True):
+            st.session_state.countdown_active = False
+    with col2:
+        countdown_options = st.selectbox("⏱️ Compte à rebours", [3, 5, 10], key="countdown_select", label_visibility="collapsed")
+        if st.button(f"⏱️ Photo dans {countdown_options}s", use_container_width=True):
+            st.session_state.countdown_active = True
+            st.session_state.countdown_time = countdown_options
+    
+    # Afficher le compte à rebours si activé
+    if st.session_state.countdown_active and st.session_state.countdown_time > 0:
+        st.markdown(f"""
+            <div style='text-align: center; padding: 2rem;'>
+                <h1 style='font-size: 5rem; color: white; animation: pulse 1s infinite;'>
+                    {st.session_state.countdown_time}
+                </h1>
+            </div>
+            <style>
+                @keyframes pulse {{
+                    0%, 100% {{ transform: scale(1); opacity: 1; }}
+                    50% {{ transform: scale(1.2); opacity: 0.8; }}
+                }}
+            </style>
+        """, unsafe_allow_html=True)
+        
+        # Décrémenter le compteur
+        import time
+        time.sleep(1)
+        st.session_state.countdown_time -= 1
+        st.rerun()
+    
+    # Prendre la photo quand le compte à rebours atteint 0
+    if st.session_state.countdown_active and st.session_state.countdown_time == 0:
+        st.success("📸 Prenez la photo maintenant !")
+        st.session_state.countdown_active = False
     
     camera_photo = st.camera_input("📸 Prendre une photo", label_visibility="collapsed")
     
@@ -810,7 +852,7 @@ def main_app():
         else:
             text_input = st.text_input("", key="text_msg", placeholder="💬 Ajouter un message (optionnel)...", label_visibility="collapsed")
             
-            if st.button("✉️ Envoyer", type="primary", use_container_width=True):
+            if st.button("💕 Envoyer", type="primary", use_container_width=True):
                 if text_input:
                     image_with_text = add_text_to_image(image, text_input)
                 else:
@@ -831,7 +873,7 @@ def main_app():
             
             st.markdown(f'<div class="{alignment}"><div class="message-content">', unsafe_allow_html=True)
             
-            sender_emoji = "👤" if is_admin else "👤"
+            sender_emoji = "👑" if is_admin else "👤"
             timestamp = datetime.fromisoformat(msg['timestamp']).strftime('%d/%m/%Y %H:%M')
             st.write(f"{sender_emoji} **{timestamp}**")
             
