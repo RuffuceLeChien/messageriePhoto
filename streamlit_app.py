@@ -723,7 +723,7 @@ def check_new_messages():
 def login_page():
     """Page de connexion"""
     st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("<h1 style='font-size: 4rem; margin-bottom: 1rem;'>💕</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size: 4rem; margin-bottom: 1rem;'>✉️</h1>", unsafe_allow_html=True)
     st.title("Messagerie Photo")
     st.markdown("<br>", unsafe_allow_html=True)
     
