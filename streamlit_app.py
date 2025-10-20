@@ -37,7 +37,7 @@ except ImportError:
     MEDIAPIPE_AVAILABLE = False
 
 # Configuration de la page
-st.set_page_config(page_title="💕 Messagerie", page_icon="💕", layout="centered")
+st.set_page_config(page_title="Messagerie", page_icon="✉️", layout="centered")
 
 # CSS pour un design moderne et élégant
 st.markdown("""
