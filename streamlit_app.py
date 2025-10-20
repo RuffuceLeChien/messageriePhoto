@@ -7,8 +7,6 @@ from datetime import datetime
 import base64
 import requests
 
-st.write("CV2_AVAILABLE:", CV2_AVAILABLE)
-st.write("MEDIAPIPE_AVAILABLE:", MEDIAPIPE_AVAILABLE)
 # Tentative d'import de Gemini (optionnel)
 try:
     import google.generativeai as genai
@@ -23,6 +21,13 @@ try:
     CV2_AVAILABLE = True
 except ImportError:
     CV2_AVAILABLE = False
+
+# Tentative d'import de MediaPipe pour détection de mains et pose
+try:
+    import mediapipe as mp
+    MEDIAPIPE_AVAILABLE = True
+except ImportError:
+    MEDIAPIPE_AVAILABLE = False
 
 # Tentative d'import de MediaPipe pour détection de mains et corps
 try:
@@ -325,7 +330,42 @@ def verify_human_body_simple(image):
             except:
                 pass
         
-        # Résultat
+        # Résultat OpenCV
+        has_body_part_opencv = len(detections) > 0
+        
+        # === AJOUT MEDIAPIPE pour mains et pieds ===
+        if MEDIAPIPE_AVAILABLE:
+            try:
+                # Détection des mains
+                mp_hands = mp.solutions.hands
+                hands_detector = mp_hands.Hands(
+                    static_image_mode=True,
+                    max_num_hands=2,
+                    min_detection_confidence=0.5
+                )
+                results_hands = hands_detector.process(img_array)
+                if results_hands.multi_hand_landmarks:
+                    num_hands = len(results_hands.multi_hand_landmarks)
+                    detections.append(f"{num_hands} main(s)")
+                hands_detector.close()
+            except Exception as e:
+                st.warning(f"Erreur détection mains: {str(e)}")
+            
+            try:
+                # Détection de la pose (inclut pieds, jambes, bras)
+                mp_pose = mp.solutions.pose
+                pose_detector = mp_pose.Pose(
+                    static_image_mode=True,
+                    min_detection_confidence=0.5
+                )
+                results_pose = pose_detector.process(img_array)
+                if results_pose.pose_landmarks:
+                    detections.append("pose (corps/pieds/bras)")
+                pose_detector.close()
+            except Exception as e:
+                st.warning(f"Erreur détection pose: {str(e)}")
+        
+        # Résultat final
         has_body_part = len(detections) > 0
         
         if has_body_part:
@@ -591,7 +631,7 @@ def main_app():
     if camera_photo is not None:
         image = Image.open(camera_photo)
         
-        # Vérification du corps humain avec détection simple
+        # Vérification du corps humain avec OpenCV + MediaPipe
         has_human = True
         
         if CV2_AVAILABLE:
