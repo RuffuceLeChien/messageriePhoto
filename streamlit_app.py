@@ -231,42 +231,78 @@ def load_messages():
         file_data = github_get_file(DATA_FILE)
         
         if not file_data:
-            st.sidebar.warning("⚠️ Fichier GitHub introuvable - initialisation")
+            st.sidebar.error("❌ Impossible de récupérer le fichier GitHub")
+            st.sidebar.write("Vérifiez GITHUB_TOKEN et GITHUB_REPO")
             return []
         
         st.sidebar.write("✅ Fichier récupéré")
         
+        # Afficher les premières lignes pour diagnostic
+        content = file_data['content']
+        st.sidebar.write(f"📝 Taille du contenu: {len(content)} caractères")
+        st.sidebar.write("Début du contenu:")
+        st.sidebar.code(content[:200] if len(content) > 200 else content)
+        
         # Vérifier que le contenu n'est pas vide
-        if not file_data['content'] or file_data['content'].strip() == "":
-            st.sidebar.warning("⚠️ Fichier vide - initialisation")
+        if not content or content.strip() == "":
+            st.sidebar.error("❌ Le fichier est vide")
             return []
         
+        # Parser le JSON
         try:
-            data = json.loads(file_data['content'])
+            data = json.loads(content)
+            st.sidebar.write(f"✅ JSON parsé avec succès")
+            st.sidebar.write(f"Clés trouvées: {list(data.keys())}")
         except json.JSONDecodeError as e:
-            st.sidebar.error(f"❌ JSON invalide: {str(e)}")
-            st.sidebar.write("Contenu reçu:", file_data['content'][:200])
+            st.sidebar.error(f"❌ Erreur JSON: {str(e)}")
+            st.sidebar.write(f"Position de l'erreur: ligne {e.lineno}, colonne {e.colno}")
+            st.sidebar.write(f"Message: {e.msg}")
+            # Afficher la zone autour de l'erreur
+            lines = content.split('\n')
+            if e.lineno <= len(lines):
+                st.sidebar.write("Ligne problématique:")
+                st.sidebar.code(lines[e.lineno - 1] if e.lineno > 0 else lines[0])
             return []
         
-        st.sidebar.write(f"📊 {len(data.get('messages', []))} messages trouvés")
+        messages_data = data.get('messages', [])
+        st.sidebar.write(f"📊 {len(messages_data)} messages trouvés dans le JSON")
         
         messages = []
-        for idx, msg in enumerate(data.get('messages', [])):
+        for idx, msg in enumerate(messages_data):
             try:
+                # Vérifier la structure du message
+                if 'image_with_text_b64' not in msg and 'original_image_b64' not in msg:
+                    st.sidebar.warning(f"⚠️ Message {idx}: pas d'image")
+                    continue
+                
+                # Décoder les images
                 if 'image_with_text_b64' in msg:
-                    msg['image_with_text'] = Image.open(io.BytesIO(base64.b64decode(msg['image_with_text_b64'])))
+                    try:
+                        img_data = base64.b64decode(msg['image_with_text_b64'])
+                        msg['image_with_text'] = Image.open(io.BytesIO(img_data))
+                    except Exception as e:
+                        st.sidebar.error(f"❌ Message {idx}: erreur image_with_text - {str(e)}")
+                        continue
+                
                 if 'original_image_b64' in msg:
-                    msg['original_image'] = Image.open(io.BytesIO(base64.b64decode(msg['original_image_b64'])))
+                    try:
+                        img_data = base64.b64decode(msg['original_image_b64'])
+                        msg['original_image'] = Image.open(io.BytesIO(img_data))
+                    except Exception as e:
+                        st.sidebar.error(f"❌ Message {idx}: erreur original_image - {str(e)}")
+                        continue
+                
                 messages.append(msg)
+                
             except Exception as e:
                 st.sidebar.warning(f"⚠️ Erreur message {idx}: {str(e)}")
                 continue
         
-        st.sidebar.success(f"✅ {len(messages)} messages chargés")
+        st.sidebar.success(f"✅ {len(messages)} messages chargés correctement")
         return messages
         
     except Exception as e:
-        st.sidebar.error(f"❌ Erreur chargement: {str(e)}")
+        st.sidebar.error(f"❌ Erreur générale: {str(e)}")
         import traceback
         st.sidebar.code(traceback.format_exc())
         return []
