@@ -177,6 +177,9 @@ DATA_FILE = "messages_data.json"
 def github_get_file(file_path):
     """Récupère un fichier depuis GitHub"""
     if not GITHUB_TOKEN or not GITHUB_REPO:
+        st.sidebar.error("❌ GITHUB_TOKEN ou GITHUB_REPO manquant")
+        st.sidebar.write(f"Token présent: {bool(GITHUB_TOKEN)}")
+        st.sidebar.write(f"Repo présent: {bool(GITHUB_REPO)}")
         return None
     
     url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path}"
@@ -186,43 +189,67 @@ def github_get_file(file_path):
     }
     
     try:
+        st.sidebar.write(f"🌐 URL: {url}")
         response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            content = response.json()
-            return {
-                'content': base64.b64decode(content['content']).decode('utf-8'),
-                'sha': content['sha']
-            }
+        
+        st.sidebar.write(f"📡 Status code: {response.status_code}")
+        
+        if response.status_code == 404:
+            st.sidebar.error("❌ Fichier non trouvé sur GitHub")
+            return None
+        
+        if response.status_code == 401:
+            st.sidebar.error("❌ Token GitHub invalide ou expiré")
+            return None
+        
+        if response.status_code != 200:
+            st.sidebar.error(f"❌ Erreur GitHub: {response.status_code}")
+            st.sidebar.write(response.text[:500])
+            return None
+        
+        content_json = response.json()
+        
+        # Vérifier la structure de la réponse
+        if 'content' not in content_json:
+            st.sidebar.error("❌ Pas de 'content' dans la réponse GitHub")
+            st.sidebar.write("Clés disponibles:", list(content_json.keys()))
+            return None
+        
+        if 'sha' not in content_json:
+            st.sidebar.error("❌ Pas de 'sha' dans la réponse GitHub")
+            return None
+        
+        # Décoder le contenu base64
+        encoded_content = content_json['content']
+        st.sidebar.write(f"📦 Contenu encodé (longueur): {len(encoded_content)}")
+        
+        # GitHub renvoie le contenu avec des sauts de ligne, il faut les enlever
+        encoded_content = encoded_content.replace('\n', '').replace('\r', '')
+        
+        try:
+            decoded_content = base64.b64decode(encoded_content).decode('utf-8')
+            st.sidebar.write(f"✅ Contenu décodé (longueur): {len(decoded_content)}")
+            st.sidebar.write("Premiers caractères:", decoded_content[:100])
+        except Exception as e:
+            st.sidebar.error(f"❌ Erreur décodage base64: {str(e)}")
+            return None
+        
+        return {
+            'content': decoded_content,
+            'sha': content_json['sha']
+        }
+        
+    except requests.exceptions.Timeout:
+        st.sidebar.error("❌ Timeout GitHub (>10s)")
+        return None
+    except requests.exceptions.RequestException as e:
+        st.sidebar.error(f"❌ Erreur requête: {str(e)}")
+        return None
     except Exception as e:
-        st.error(f"Erreur GitHub GET: {str(e)}")
-    return None
-
-def github_update_file(file_path, content, sha=None, message="Update data"):
-    """Met à jour un fichier sur GitHub"""
-    if not GITHUB_TOKEN or not GITHUB_REPO:
-        return False
-    
-    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path}"
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json"
-    }
-    
-    data = {
-        "message": message,
-        "content": base64.b64encode(content.encode('utf-8')).decode('utf-8'),
-        "branch": GITHUB_BRANCH
-    }
-    
-    if sha:
-        data["sha"] = sha
-    
-    try:
-        response = requests.put(url, headers=headers, json=data, timeout=10)
-        return response.status_code in [200, 201]
-    except Exception as e:
-        st.error(f"Erreur GitHub UPDATE: {str(e)}")
-        return False
+        st.sidebar.error(f"❌ Erreur GitHub GET: {str(e)}")
+        import traceback
+        st.sidebar.code(traceback.format_exc())
+        return None
 
 def load_messages():
     """Charge les messages depuis GitHub"""
