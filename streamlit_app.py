@@ -177,7 +177,7 @@ DATA_FILE = "messages_data.json"
 def github_get_file(file_path):
     """Récupère un fichier depuis GitHub via l'API Blob (pas de limite de taille)"""
     if not GITHUB_TOKEN or not GITHUB_REPO:
-        st.sidebar.error("❌ GITHUB_TOKEN ou GITHUB_REPO manquant")
+        # st.sidebar.error("❌ GITHUB_TOKEN ou GITHUB_REPO manquant")
         return None
     
     # D'abord, récupérer le SHA du fichier
@@ -188,23 +188,23 @@ def github_get_file(file_path):
     }
     
     try:
-        st.sidebar.write(f"🌐 Récupération SHA...")
+        # st.sidebar.write(f"🌐 Récupération SHA...")
         response = requests.get(url, headers=headers, timeout=10)
         
         if response.status_code != 200:
-            st.sidebar.error(f"❌ Erreur: {response.status_code}")
+            # st.sidebar.error(f"❌ Erreur: {response.status_code}")
             return None
         
         file_info = response.json()
         sha = file_info.get('sha')
         size = file_info.get('size', 0)
         
-        st.sidebar.write(f"📦 Taille du fichier: {size} octets")
-        st.sidebar.write(f"🔑 SHA: {sha[:10]}...")
+        # st.sidebar.write(f"📦 Taille du fichier: {size} octets")
+        # st.sidebar.write(f"🔑 SHA: {sha[:10]}...")
         
         # Si le fichier est petit, utiliser le contenu direct
         if size < 900000 and 'content' in file_info and file_info['content']:
-            st.sidebar.write("✅ Utilisation de l'API Contents")
+            # st.sidebar.write("✅ Utilisation de l'API Contents")
             encoded_content = file_info['content'].replace('\n', '').replace('\r', '')
             decoded_content = base64.b64decode(encoded_content).decode('utf-8')
             return {
@@ -213,26 +213,26 @@ def github_get_file(file_path):
             }
         
         # Sinon, utiliser l'API Blob (pas de limite de taille)
-        st.sidebar.write("🔄 Utilisation de l'API Blob...")
+        # st.sidebar.write("🔄 Utilisation de l'API Blob...")
         blob_url = f"https://api.github.com/repos/{GITHUB_REPO}/git/blobs/{sha}"
         blob_response = requests.get(blob_url, headers=headers, timeout=30)
         
         if blob_response.status_code != 200:
-            st.sidebar.error(f"❌ Erreur Blob: {blob_response.status_code}")
+            # st.sidebar.error(f"❌ Erreur Blob: {blob_response.status_code}")
             return None
         
         blob_data = blob_response.json()
         
         if 'content' not in blob_data:
-            st.sidebar.error("❌ Pas de contenu dans le blob")
+            # st.sidebar.error("❌ Pas de contenu dans le blob")
             return None
         
         encoded_content = blob_data['content'].replace('\n', '').replace('\r', '')
-        st.sidebar.write(f"📦 Contenu blob encodé: {len(encoded_content)} caractères")
+        # st.sidebar.write(f"📦 Contenu blob encodé: {len(encoded_content)} caractères")
         
         decoded_content = base64.b64decode(encoded_content).decode('utf-8')
-        st.sidebar.write(f"✅ Contenu décodé: {len(decoded_content)} caractères")
-        st.sidebar.write("Premiers caractères:", decoded_content[:100])
+        # st.sidebar.write(f"✅ Contenu décodé: {len(decoded_content)} caractères")
+        # st.sidebar.write("Premiers caractères:", decoded_content[:100])
         
         return {
             'content': decoded_content,
@@ -240,92 +240,69 @@ def github_get_file(file_path):
         }
         
     except Exception as e:
-        st.sidebar.error(f"❌ Erreur: {str(e)}")
-        import traceback
-        st.sidebar.code(traceback.format_exc())
+        # st.sidebar.error(f"❌ Erreur: {str(e)}")
+        # import traceback
+        # st.sidebar.code(traceback.format_exc())
         return None
 
 def load_messages():
     """Charge les messages depuis GitHub"""
     try:
-        st.sidebar.write("🔄 Chargement depuis GitHub...")
+        # st.sidebar.write("🔄 Chargement depuis GitHub...")
         file_data = github_get_file(DATA_FILE)
         
         if not file_data:
-            st.sidebar.error("❌ Impossible de récupérer le fichier GitHub")
-            st.sidebar.write("Vérifiez GITHUB_TOKEN et GITHUB_REPO")
+            # st.sidebar.error("❌ Impossible de récupérer le fichier GitHub")
             return []
         
-        st.sidebar.write("✅ Fichier récupéré")
+        # st.sidebar.write("✅ Fichier récupéré")
         
-        # Afficher les premières lignes pour diagnostic
         content = file_data['content']
-        st.sidebar.write(f"📝 Taille du contenu: {len(content)} caractères")
-        st.sidebar.write("Début du contenu:")
-        st.sidebar.code(content[:200] if len(content) > 200 else content)
+        # st.sidebar.write(f"📝 Taille du contenu: {len(content)} caractères")
+        # st.sidebar.write("Début du contenu:")
+        # st.sidebar.code(content[:200] if len(content) > 200 else content)
         
-        # Vérifier que le contenu n'est pas vide
         if not content or content.strip() == "":
-            st.sidebar.error("❌ Le fichier est vide")
+            # st.sidebar.error("❌ Le fichier est vide")
             return []
         
-        # Parser le JSON
         try:
             data = json.loads(content)
-            st.sidebar.write(f"✅ JSON parsé avec succès")
-            st.sidebar.write(f"Clés trouvées: {list(data.keys())}")
+            # st.sidebar.write(f"✅ JSON parsé avec succès")
+            # st.sidebar.write(f"Clés trouvées: {list(data.keys())}")
         except json.JSONDecodeError as e:
-            st.sidebar.error(f"❌ Erreur JSON: {str(e)}")
-            st.sidebar.write(f"Position de l'erreur: ligne {e.lineno}, colonne {e.colno}")
-            st.sidebar.write(f"Message: {e.msg}")
-            # Afficher la zone autour de l'erreur
-            lines = content.split('\n')
-            if e.lineno <= len(lines):
-                st.sidebar.write("Ligne problématique:")
-                st.sidebar.code(lines[e.lineno - 1] if e.lineno > 0 else lines[0])
+            # st.sidebar.error(f"❌ Erreur JSON: {str(e)}")
+            # st.sidebar.write(f"Position de l'erreur: ligne {e.lineno}, colonne {e.colno}")
+            # st.sidebar.write(f"Message: {e.msg}")
             return []
         
         messages_data = data.get('messages', [])
-        st.sidebar.write(f"📊 {len(messages_data)} messages trouvés dans le JSON")
+        # st.sidebar.write(f"📊 {len(messages_data)} messages trouvés dans le JSON")
         
         messages = []
         for idx, msg in enumerate(messages_data):
             try:
-                # Vérifier la structure du message
-                if 'image_with_text_b64' not in msg and 'original_image_b64' not in msg:
-                    st.sidebar.warning(f"⚠️ Message {idx}: pas d'image")
-                    continue
-                
-                # Décoder les images
                 if 'image_with_text_b64' in msg:
-                    try:
-                        img_data = base64.b64decode(msg['image_with_text_b64'])
-                        msg['image_with_text'] = Image.open(io.BytesIO(img_data))
-                    except Exception as e:
-                        st.sidebar.error(f"❌ Message {idx}: erreur image_with_text - {str(e)}")
-                        continue
+                    img_data = base64.b64decode(msg['image_with_text_b64'])
+                    msg['image_with_text'] = Image.open(io.BytesIO(img_data))
                 
                 if 'original_image_b64' in msg:
-                    try:
-                        img_data = base64.b64decode(msg['original_image_b64'])
-                        msg['original_image'] = Image.open(io.BytesIO(img_data))
-                    except Exception as e:
-                        st.sidebar.error(f"❌ Message {idx}: erreur original_image - {str(e)}")
-                        continue
+                    img_data = base64.b64decode(msg['original_image_b64'])
+                    msg['original_image'] = Image.open(io.BytesIO(img_data))
                 
                 messages.append(msg)
                 
             except Exception as e:
-                st.sidebar.warning(f"⚠️ Erreur message {idx}: {str(e)}")
+                # st.sidebar.warning(f"⚠️ Erreur message {idx}: {str(e)}")
                 continue
         
-        st.sidebar.success(f"✅ {len(messages)} messages chargés correctement")
+        # st.sidebar.success(f"✅ {len(messages)} messages chargés correctement")
         return messages
         
     except Exception as e:
-        st.sidebar.error(f"❌ Erreur générale: {str(e)}")
-        import traceback
-        st.sidebar.code(traceback.format_exc())
+        # st.sidebar.error(f"❌ Erreur générale: {str(e)}")
+        # import traceback
+        # st.sidebar.code(traceback.format_exc())
         return []
 
 def save_messages():
