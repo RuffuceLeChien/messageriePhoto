@@ -231,12 +231,23 @@ def load_messages():
         file_data = github_get_file(DATA_FILE)
         
         if not file_data:
-            st.sidebar.error("❌ Impossible de récupérer le fichier GitHub")
+            st.sidebar.warning("⚠️ Fichier GitHub introuvable - initialisation")
             return []
         
         st.sidebar.write("✅ Fichier récupéré")
         
-        data = json.loads(file_data['content'])
+        # Vérifier que le contenu n'est pas vide
+        if not file_data['content'] or file_data['content'].strip() == "":
+            st.sidebar.warning("⚠️ Fichier vide - initialisation")
+            return []
+        
+        try:
+            data = json.loads(file_data['content'])
+        except json.JSONDecodeError as e:
+            st.sidebar.error(f"❌ JSON invalide: {str(e)}")
+            st.sidebar.write("Contenu reçu:", file_data['content'][:200])
+            return []
+        
         st.sidebar.write(f"📊 {len(data.get('messages', []))} messages trouvés")
         
         messages = []
@@ -256,6 +267,8 @@ def load_messages():
         
     except Exception as e:
         st.sidebar.error(f"❌ Erreur chargement: {str(e)}")
+        import traceback
+        st.sidebar.code(traceback.format_exc())
         return []
 
 def save_messages():
