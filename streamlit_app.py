@@ -434,11 +434,12 @@ def verify_human_body_simple(image):
         return True
 
 def add_text_to_image(image, text):
-    """Ajoute du texte stylé sur l'image"""
+    """Ajoute du texte stylé sur l'image avec gestion multi-lignes"""
     if not text or text.strip() == "":
         return image
     
-    scale_factor = 2
+    # Augmenter le facteur d'échelle pour une meilleure qualité
+    scale_factor = 3
     img_copy = image.copy()
     original_size = img_copy.size
     img_copy = img_copy.resize((original_size[0] * scale_factor, original_size[1] * scale_factor), Image.LANCZOS)
@@ -447,7 +448,9 @@ def add_text_to_image(image, text):
     draw = ImageDraw.Draw(txt_layer)
     
     width, height = img_copy.size
-    font_size = int(height * 0.07)
+    
+    # Taille de police plus petite et adaptative
+    font_size = int(height * 0.04)  # Réduit de 0.07 à 0.04
     
     font = None
     font_paths = [
@@ -471,45 +474,129 @@ def add_text_to_image(image, text):
     if font is None:
         font = ImageFont.load_default()
     
-    try:
-        bbox = draw.textbbox((0, 0), text, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-    except:
-        text_width = len(text) * (font_size // 2)
-        text_height = font_size
+    # Découper le texte en plusieurs lignes
+    max_width = width * 0.85  # 85% de la largeur de l'image
+    lines = []
+    words = text.split()
+    current_line = ""
     
-    padding = int(font_size * 0.6)
-    x = (width - text_width) // 2
-    y = height - text_height - padding * 3
+    for word in words:
+        test_line = current_line + " " + word if current_line else word
+        try:
+            bbox = draw.textbbox((0, 0), test_line, font=font)
+            test_width = bbox[2] - bbox[0]
+        except:
+            test_width = len(test_line) * (font_size // 2)
+        
+        if test_width <= max_width:
+            current_line = test_line
+        else:
+            if current_line:
+                lines.append(current_line)
+            current_line = word
     
-    rect = [x - padding, y - padding, x + text_width + padding, y + text_height + padding]
+    if current_line:
+        lines.append(current_line)
+    
+    # Si une seule ligne est trop longue, la couper par caractères
+    final_lines = []
+    for line in lines:
+        try:
+            bbox = draw.textbbox((0, 0), line, font=font)
+            line_width = bbox[2] - bbox[0]
+        except:
+            line_width = len(line) * (font_size // 2)
+        
+        if line_width > max_width:
+            # Couper la ligne en plusieurs morceaux
+            chars_per_line = int(len(line) * (max_width / line_width))
+            for i in range(0, len(line), chars_per_line):
+                final_lines.append(line[i:i+chars_per_line])
+        else:
+            final_lines.append(line)
+    
+    # Calculer la hauteur totale du texte
+    line_height = font_size * 1.4  # Espacement entre les lignes
+    total_text_height = len(final_lines) * line_height
+    
+    # Si trop de lignes, réduire encore la taille de police
+    if len(final_lines) > 5:
+        font_size = int(height * 0.03)
+        try:
+            for font_path in font_paths:
+                if os.path.exists(font_path):
+                    font = ImageFont.truetype(font_path, font_size)
+                    break
+        except:
+            pass
+        line_height = font_size * 1.4
+        total_text_height = len(final_lines) * line_height
+    
+    padding = int(font_size * 0.8)
+    
+    # Calculer les dimensions du rectangle
+    max_line_width = 0
+    for line in final_lines:
+        try:
+            bbox = draw.textbbox((0, 0), line, font=font)
+            line_width = bbox[2] - bbox[0]
+        except:
+            line_width = len(line) * (font_size // 2)
+        max_line_width = max(max_line_width, line_width)
+    
+    # Position du rectangle (centré en bas)
+    rect_width = max_line_width + padding * 2
+    rect_height = total_text_height + padding * 2
+    x = (width - rect_width) // 2
+    y = height - rect_height - padding * 2
+    
+    rect = [x, y, x + rect_width, y + rect_height]
     radius = padding
     
-    shadow_offset = 8
+    # Ombre portée
+    shadow_offset = 6
     shadow = Image.new('RGBA', img_copy.size, (0, 0, 0, 0))
     shadow_draw = ImageDraw.Draw(shadow)
     shadow_draw.rounded_rectangle([r + shadow_offset for r in rect], radius=radius, fill=(0, 0, 0, 140))
-    shadow = shadow.filter(ImageFilter.GaussianBlur(12))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(10))
     txt_layer = Image.alpha_composite(txt_layer, shadow)
     draw = ImageDraw.Draw(txt_layer)
     
+    # Rectangle de fond
     draw.rounded_rectangle(rect, radius=radius, fill=(20, 20, 20, 230))
-    draw.rounded_rectangle(rect, radius=radius, outline=(255, 255, 255, 180), width=3)
+    draw.rounded_rectangle(rect, radius=radius, outline=(255, 255, 255, 180), width=2)
     
-    for offset in [(2, 2), (-2, 2), (2, -2), (-2, -2), (0, 3), (3, 0)]:
+    # Dessiner chaque ligne de texte
+    current_y = y + padding
+    for line in final_lines:
         try:
-            draw.text((x + offset[0], y + offset[1]), text, font=font, fill=(0, 0, 0, 200), embedded_color=True)
+            bbox = draw.textbbox((0, 0), line, font=font)
+            line_width = bbox[2] - bbox[0]
         except:
-            draw.text((x + offset[0], y + offset[1]), text, font=font, fill=(0, 0, 0, 200))
+            line_width = len(line) * (font_size // 2)
+        
+        line_x = x + (rect_width - line_width) // 2
+        
+        # Ombre du texte
+        for offset in [(1, 1), (-1, 1), (1, -1), (-1, -1), (0, 2), (2, 0)]:
+            try:
+                draw.text((line_x + offset[0], current_y + offset[1]), line, font=font, fill=(0, 0, 0, 200), embedded_color=True)
+            except:
+                draw.text((line_x + offset[0], current_y + offset[1]), line, font=font, fill=(0, 0, 0, 200))
+        
+        # Texte principal
+        try:
+            draw.text((line_x, current_y), line, font=font, fill=(255, 255, 255, 255), embedded_color=True)
+        except:
+            draw.text((line_x, current_y), line, font=font, fill=(255, 255, 255, 255))
+        
+        current_y += line_height
     
-    try:
-        draw.text((x, y), text, font=font, fill=(255, 255, 255, 255), embedded_color=True)
-    except:
-        draw.text((x, y), text, font=font, fill=(255, 255, 255, 255))
-    
+    # Composer l'image finale
     img_copy = img_copy.convert('RGBA')
     img_copy = Image.alpha_composite(img_copy, txt_layer)
+    
+    # Redimensionner à la taille originale avec haute qualité
     img_copy = img_copy.resize(original_size, Image.LANCZOS)
     img_copy = img_copy.convert('RGB')
     
@@ -547,7 +634,7 @@ def check_new_messages():
 def login_page():
     """Page de connexion"""
     st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("<h1 style='font-size: 4rem; margin-bottom: 1rem;'>💕</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size: 4rem; margin-bottom: 1rem;'>📸</h1>", unsafe_allow_html=True)
     st.title("Messagerie Photo")
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -594,7 +681,7 @@ def admin_panel():
 
 def main_app():
     """Application principale"""
-    st.title("💕 Messagerie Photo")
+    st.title(" Messagerie Photo")
     
     # Afficher l'état du système dans la sidebar
     with st.sidebar:
@@ -639,7 +726,7 @@ def main_app():
         else:
             text_input = st.text_input("", key="text_msg", placeholder="💬 Ajouter un message...", label_visibility="collapsed")
             
-            if st.button("💕 Envoyer", type="primary", use_container_width=True):
+            if st.button("✉️ Envoyer", type="primary", use_container_width=True):
                 image_with_text = add_text_to_image(image, text_input) if text_input else image
                 save_message(image_with_text, text_input, image, st.session_state.current_user)
                 st.success("✅ Envoyé !")
