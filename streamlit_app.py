@@ -175,12 +175,10 @@ GITHUB_BRANCH = "main"
 DATA_FILE = "messages_data.json"
 
 def github_get_file(file_path):
-    """Récupère un fichier depuis GitHub via l'API Blob (pas de limite de taille)"""
+    """Récupère un fichier depuis GitHub"""
     if not GITHUB_TOKEN or not GITHUB_REPO:
-        # st.sidebar.error("❌ GITHUB_TOKEN ou GITHUB_REPO manquant")
         return None
     
-    # D'abord, récupérer le SHA du fichier
     url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path}"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
@@ -188,121 +186,76 @@ def github_get_file(file_path):
     }
     
     try:
-        # st.sidebar.write(f"🌐 Récupération SHA...")
         response = requests.get(url, headers=headers, timeout=10)
-        
-        if response.status_code != 200:
-            # st.sidebar.error(f"❌ Erreur: {response.status_code}")
-            return None
-        
-        file_info = response.json()
-        sha = file_info.get('sha')
-        size = file_info.get('size', 0)
-        
-        # st.sidebar.write(f"📦 Taille du fichier: {size} octets")
-        # st.sidebar.write(f"🔑 SHA: {sha[:10]}...")
-        
-        # Si le fichier est petit, utiliser le contenu direct
-        if size < 900000 and 'content' in file_info and file_info['content']:
-            # st.sidebar.write("✅ Utilisation de l'API Contents")
-            encoded_content = file_info['content'].replace('\n', '').replace('\r', '')
-            decoded_content = base64.b64decode(encoded_content).decode('utf-8')
+        if response.status_code == 200:
+            content = response.json()
             return {
-                'content': decoded_content,
-                'sha': sha
+                'content': base64.b64decode(content['content']).decode('utf-8'),
+                'sha': content['sha']
             }
-        
-        # Sinon, utiliser l'API Blob (pas de limite de taille)
-        # st.sidebar.write("🔄 Utilisation de l'API Blob...")
-        blob_url = f"https://api.github.com/repos/{GITHUB_REPO}/git/blobs/{sha}"
-        blob_response = requests.get(blob_url, headers=headers, timeout=30)
-        
-        if blob_response.status_code != 200:
-            # st.sidebar.error(f"❌ Erreur Blob: {blob_response.status_code}")
-            return None
-        
-        blob_data = blob_response.json()
-        
-        if 'content' not in blob_data:
-            # st.sidebar.error("❌ Pas de contenu dans le blob")
-            return None
-        
-        encoded_content = blob_data['content'].replace('\n', '').replace('\r', '')
-        # st.sidebar.write(f"📦 Contenu blob encodé: {len(encoded_content)} caractères")
-        
-        decoded_content = base64.b64decode(encoded_content).decode('utf-8')
-        # st.sidebar.write(f"✅ Contenu décodé: {len(decoded_content)} caractères")
-        # st.sidebar.write("Premiers caractères:", decoded_content[:100])
-        
-        return {
-            'content': decoded_content,
-            'sha': sha
-        }
-        
     except Exception as e:
-        # st.sidebar.error(f"❌ Erreur: {str(e)}")
-        # import traceback
-        # st.sidebar.code(traceback.format_exc())
-        return None
+        st.error(f"Erreur GitHub GET: {str(e)}")
+    return None
+
+def github_update_file(file_path, content, sha=None, message="Update data"):
+    """Met à jour un fichier sur GitHub"""
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        return False
+    
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path}"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    data = {
+        "message": message,
+        "content": base64.b64encode(content.encode('utf-8')).decode('utf-8'),
+        "branch": GITHUB_BRANCH
+    }
+    
+    if sha:
+        data["sha"] = sha
+    
+    try:
+        response = requests.put(url, headers=headers, json=data, timeout=10)
+        return response.status_code in [200, 201]
+    except Exception as e:
+        st.error(f"Erreur GitHub UPDATE: {str(e)}")
+        return False
 
 def load_messages():
     """Charge les messages depuis GitHub"""
     try:
-        # st.sidebar.write("🔄 Chargement depuis GitHub...")
+        st.sidebar.write("🔄 Chargement depuis GitHub...")
         file_data = github_get_file(DATA_FILE)
         
         if not file_data:
-            # st.sidebar.error("❌ Impossible de récupérer le fichier GitHub")
+            st.sidebar.error("❌ Impossible de récupérer le fichier GitHub")
             return []
         
-        # st.sidebar.write("✅ Fichier récupéré")
+        st.sidebar.write("✅ Fichier récupéré")
         
-        content = file_data['content']
-        # st.sidebar.write(f"📝 Taille du contenu: {len(content)} caractères")
-        # st.sidebar.write("Début du contenu:")
-        # st.sidebar.code(content[:200] if len(content) > 200 else content)
-        
-        if not content or content.strip() == "":
-            # st.sidebar.error("❌ Le fichier est vide")
-            return []
-        
-        try:
-            data = json.loads(content)
-            # st.sidebar.write(f"✅ JSON parsé avec succès")
-            # st.sidebar.write(f"Clés trouvées: {list(data.keys())}")
-        except json.JSONDecodeError as e:
-            # st.sidebar.error(f"❌ Erreur JSON: {str(e)}")
-            # st.sidebar.write(f"Position de l'erreur: ligne {e.lineno}, colonne {e.colno}")
-            # st.sidebar.write(f"Message: {e.msg}")
-            return []
-        
-        messages_data = data.get('messages', [])
-        # st.sidebar.write(f"📊 {len(messages_data)} messages trouvés dans le JSON")
+        data = json.loads(file_data['content'])
+        st.sidebar.write(f"📊 {len(data.get('messages', []))} messages trouvés")
         
         messages = []
-        for idx, msg in enumerate(messages_data):
+        for idx, msg in enumerate(data.get('messages', [])):
             try:
                 if 'image_with_text_b64' in msg:
-                    img_data = base64.b64decode(msg['image_with_text_b64'])
-                    msg['image_with_text'] = Image.open(io.BytesIO(img_data))
-                
+                    msg['image_with_text'] = Image.open(io.BytesIO(base64.b64decode(msg['image_with_text_b64'])))
                 if 'original_image_b64' in msg:
-                    img_data = base64.b64decode(msg['original_image_b64'])
-                    msg['original_image'] = Image.open(io.BytesIO(img_data))
-                
+                    msg['original_image'] = Image.open(io.BytesIO(base64.b64decode(msg['original_image_b64'])))
                 messages.append(msg)
-                
             except Exception as e:
-                # st.sidebar.warning(f"⚠️ Erreur message {idx}: {str(e)}")
+                st.sidebar.warning(f"⚠️ Erreur message {idx}: {str(e)}")
                 continue
         
-        # st.sidebar.success(f"✅ {len(messages)} messages chargés correctement")
+        st.sidebar.success(f"✅ {len(messages)} messages chargés")
         return messages
         
     except Exception as e:
-        # st.sidebar.error(f"❌ Erreur générale: {str(e)}")
-        # import traceback
-        # st.sidebar.code(traceback.format_exc())
+        st.sidebar.error(f"❌ Erreur chargement: {str(e)}")
         return []
 
 def save_messages():
@@ -319,12 +272,14 @@ def save_messages():
             
             if 'image_with_text' in msg:
                 img_bytes = io.BytesIO()
-                msg['image_with_text'].save(img_bytes, format='PNG')
+                # Sauvegarder en haute qualité (95%) et optimiser pour la taille
+                msg['image_with_text'].save(img_bytes, format='JPEG', quality=95, optimize=True, subsampling=0)
                 msg_copy['image_with_text_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
             
             if 'original_image' in msg:
                 img_bytes = io.BytesIO()
-                msg['original_image'].save(img_bytes, format='PNG')
+                # Sauvegarder l'image originale en haute qualité (95%)
+                msg['original_image'].save(img_bytes, format='JPEG', quality=95, optimize=True, subsampling=0)
                 msg_copy['original_image_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
             
             messages_to_save.append(msg_copy)
@@ -434,12 +389,11 @@ def verify_human_body_simple(image):
         return True
 
 def add_text_to_image(image, text):
-    """Ajoute du texte stylé sur l'image avec gestion multi-lignes"""
+    """Ajoute du texte stylé sur l'image"""
     if not text or text.strip() == "":
         return image
     
-    # Augmenter le facteur d'échelle pour une meilleure qualité
-    scale_factor = 3
+    scale_factor = 2
     img_copy = image.copy()
     original_size = img_copy.size
     img_copy = img_copy.resize((original_size[0] * scale_factor, original_size[1] * scale_factor), Image.LANCZOS)
@@ -448,9 +402,7 @@ def add_text_to_image(image, text):
     draw = ImageDraw.Draw(txt_layer)
     
     width, height = img_copy.size
-    
-    # Taille de police plus petite et adaptative
-    font_size = int(height * 0.04)  # Réduit de 0.07 à 0.04
+    font_size = int(height * 0.07)
     
     font = None
     font_paths = [
@@ -474,129 +426,45 @@ def add_text_to_image(image, text):
     if font is None:
         font = ImageFont.load_default()
     
-    # Découper le texte en plusieurs lignes
-    max_width = width * 0.85  # 85% de la largeur de l'image
-    lines = []
-    words = text.split()
-    current_line = ""
+    try:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+    except:
+        text_width = len(text) * (font_size // 2)
+        text_height = font_size
     
-    for word in words:
-        test_line = current_line + " " + word if current_line else word
-        try:
-            bbox = draw.textbbox((0, 0), test_line, font=font)
-            test_width = bbox[2] - bbox[0]
-        except:
-            test_width = len(test_line) * (font_size // 2)
-        
-        if test_width <= max_width:
-            current_line = test_line
-        else:
-            if current_line:
-                lines.append(current_line)
-            current_line = word
+    padding = int(font_size * 0.6)
+    x = (width - text_width) // 2
+    y = height - text_height - padding * 3
     
-    if current_line:
-        lines.append(current_line)
-    
-    # Si une seule ligne est trop longue, la couper par caractères
-    final_lines = []
-    for line in lines:
-        try:
-            bbox = draw.textbbox((0, 0), line, font=font)
-            line_width = bbox[2] - bbox[0]
-        except:
-            line_width = len(line) * (font_size // 2)
-        
-        if line_width > max_width:
-            # Couper la ligne en plusieurs morceaux
-            chars_per_line = int(len(line) * (max_width / line_width))
-            for i in range(0, len(line), chars_per_line):
-                final_lines.append(line[i:i+chars_per_line])
-        else:
-            final_lines.append(line)
-    
-    # Calculer la hauteur totale du texte
-    line_height = font_size * 1.4  # Espacement entre les lignes
-    total_text_height = len(final_lines) * line_height
-    
-    # Si trop de lignes, réduire encore la taille de police
-    if len(final_lines) > 5:
-        font_size = int(height * 0.03)
-        try:
-            for font_path in font_paths:
-                if os.path.exists(font_path):
-                    font = ImageFont.truetype(font_path, font_size)
-                    break
-        except:
-            pass
-        line_height = font_size * 1.4
-        total_text_height = len(final_lines) * line_height
-    
-    padding = int(font_size * 0.8)
-    
-    # Calculer les dimensions du rectangle
-    max_line_width = 0
-    for line in final_lines:
-        try:
-            bbox = draw.textbbox((0, 0), line, font=font)
-            line_width = bbox[2] - bbox[0]
-        except:
-            line_width = len(line) * (font_size // 2)
-        max_line_width = max(max_line_width, line_width)
-    
-    # Position du rectangle (centré en bas)
-    rect_width = max_line_width + padding * 2
-    rect_height = total_text_height + padding * 2
-    x = (width - rect_width) // 2
-    y = height - rect_height - padding * 2
-    
-    rect = [x, y, x + rect_width, y + rect_height]
+    rect = [x - padding, y - padding, x + text_width + padding, y + text_height + padding]
     radius = padding
     
-    # Ombre portée
-    shadow_offset = 6
+    shadow_offset = 8
     shadow = Image.new('RGBA', img_copy.size, (0, 0, 0, 0))
     shadow_draw = ImageDraw.Draw(shadow)
     shadow_draw.rounded_rectangle([r + shadow_offset for r in rect], radius=radius, fill=(0, 0, 0, 140))
-    shadow = shadow.filter(ImageFilter.GaussianBlur(10))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(12))
     txt_layer = Image.alpha_composite(txt_layer, shadow)
     draw = ImageDraw.Draw(txt_layer)
     
-    # Rectangle de fond
     draw.rounded_rectangle(rect, radius=radius, fill=(20, 20, 20, 230))
-    draw.rounded_rectangle(rect, radius=radius, outline=(255, 255, 255, 180), width=2)
+    draw.rounded_rectangle(rect, radius=radius, outline=(255, 255, 255, 180), width=3)
     
-    # Dessiner chaque ligne de texte
-    current_y = y + padding
-    for line in final_lines:
+    for offset in [(2, 2), (-2, 2), (2, -2), (-2, -2), (0, 3), (3, 0)]:
         try:
-            bbox = draw.textbbox((0, 0), line, font=font)
-            line_width = bbox[2] - bbox[0]
+            draw.text((x + offset[0], y + offset[1]), text, font=font, fill=(0, 0, 0, 200), embedded_color=True)
         except:
-            line_width = len(line) * (font_size // 2)
-        
-        line_x = x + (rect_width - line_width) // 2
-        
-        # Ombre du texte
-        for offset in [(1, 1), (-1, 1), (1, -1), (-1, -1), (0, 2), (2, 0)]:
-            try:
-                draw.text((line_x + offset[0], current_y + offset[1]), line, font=font, fill=(0, 0, 0, 200), embedded_color=True)
-            except:
-                draw.text((line_x + offset[0], current_y + offset[1]), line, font=font, fill=(0, 0, 0, 200))
-        
-        # Texte principal
-        try:
-            draw.text((line_x, current_y), line, font=font, fill=(255, 255, 255, 255), embedded_color=True)
-        except:
-            draw.text((line_x, current_y), line, font=font, fill=(255, 255, 255, 255))
-        
-        current_y += line_height
+            draw.text((x + offset[0], y + offset[1]), text, font=font, fill=(0, 0, 0, 200))
     
-    # Composer l'image finale
+    try:
+        draw.text((x, y), text, font=font, fill=(255, 255, 255, 255), embedded_color=True)
+    except:
+        draw.text((x, y), text, font=font, fill=(255, 255, 255, 255))
+    
     img_copy = img_copy.convert('RGBA')
     img_copy = Image.alpha_composite(img_copy, txt_layer)
-    
-    # Redimensionner à la taille originale avec haute qualité
     img_copy = img_copy.resize(original_size, Image.LANCZOS)
     img_copy = img_copy.convert('RGB')
     
@@ -634,7 +502,7 @@ def check_new_messages():
 def login_page():
     """Page de connexion"""
     st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("<h1 style='font-size: 4rem; margin-bottom: 1rem;'>📸</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size: 4rem; margin-bottom: 1rem;'>💕</h1>", unsafe_allow_html=True)
     st.title("Messagerie Photo")
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -681,7 +549,7 @@ def admin_panel():
 
 def main_app():
     """Application principale"""
-    st.title(" Messagerie Photo")
+    st.title("💕 Messagerie Photo")
     
     # Afficher l'état du système dans la sidebar
     with st.sidebar:
@@ -726,7 +594,7 @@ def main_app():
         else:
             text_input = st.text_input("", key="text_msg", placeholder="💬 Ajouter un message...", label_visibility="collapsed")
             
-            if st.button("✉️ Envoyer", type="primary", use_container_width=True):
+            if st.button("💕 Envoyer", type="primary", use_container_width=True):
                 image_with_text = add_text_to_image(image, text_input) if text_input else image
                 save_message(image_with_text, text_input, image, st.session_state.current_user)
                 st.success("✅ Envoyé !")
