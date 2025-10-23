@@ -319,12 +319,12 @@ def save_messages():
             
             if 'image_with_text' in msg:
                 img_bytes = io.BytesIO()
-                msg['image_with_text'].save(img_bytes, format='PNG')
+                msg['image_with_text'].save(img_bytes, format='JPEG', quality=95, optimize=True, subsampling=0)
                 msg_copy['image_with_text_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
             
             if 'original_image' in msg:
                 img_bytes = io.BytesIO()
-                msg['original_image'].save(img_bytes, format='PNG')
+                msg['original_image'].save(img_bytes, format='JPEG', quality=95, optimize=True, subsampling=0)
                 msg_copy['original_image_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
             
             messages_to_save.append(msg_copy)
