@@ -175,13 +175,12 @@ GITHUB_BRANCH = "main"
 DATA_FILE = "messages_data.json"
 
 def github_get_file(file_path):
-    """Récupère un fichier depuis GitHub"""
+    """Récupère un fichier depuis GitHub via l'API Blob (pas de limite de taille)"""
     if not GITHUB_TOKEN or not GITHUB_REPO:
         st.sidebar.error("❌ GITHUB_TOKEN ou GITHUB_REPO manquant")
-        st.sidebar.write(f"Token présent: {bool(GITHUB_TOKEN)}")
-        st.sidebar.write(f"Repo présent: {bool(GITHUB_REPO)}")
         return None
     
+    # D'abord, récupérer le SHA du fichier
     url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path}"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
@@ -189,64 +188,59 @@ def github_get_file(file_path):
     }
     
     try:
-        st.sidebar.write(f"🌐 URL: {url}")
+        st.sidebar.write(f"🌐 Récupération SHA...")
         response = requests.get(url, headers=headers, timeout=10)
         
-        st.sidebar.write(f"📡 Status code: {response.status_code}")
-        
-        if response.status_code == 404:
-            st.sidebar.error("❌ Fichier non trouvé sur GitHub")
-            return None
-        
-        if response.status_code == 401:
-            st.sidebar.error("❌ Token GitHub invalide ou expiré")
-            return None
-        
         if response.status_code != 200:
-            st.sidebar.error(f"❌ Erreur GitHub: {response.status_code}")
-            st.sidebar.write(response.text[:500])
+            st.sidebar.error(f"❌ Erreur: {response.status_code}")
             return None
         
-        content_json = response.json()
+        file_info = response.json()
+        sha = file_info.get('sha')
+        size = file_info.get('size', 0)
         
-        # Vérifier la structure de la réponse
-        if 'content' not in content_json:
-            st.sidebar.error("❌ Pas de 'content' dans la réponse GitHub")
-            st.sidebar.write("Clés disponibles:", list(content_json.keys()))
-            return None
+        st.sidebar.write(f"📦 Taille du fichier: {size} octets")
+        st.sidebar.write(f"🔑 SHA: {sha[:10]}...")
         
-        if 'sha' not in content_json:
-            st.sidebar.error("❌ Pas de 'sha' dans la réponse GitHub")
-            return None
-        
-        # Décoder le contenu base64
-        encoded_content = content_json['content']
-        st.sidebar.write(f"📦 Contenu encodé (longueur): {len(encoded_content)}")
-        
-        # GitHub renvoie le contenu avec des sauts de ligne, il faut les enlever
-        encoded_content = encoded_content.replace('\n', '').replace('\r', '')
-        
-        try:
+        # Si le fichier est petit, utiliser le contenu direct
+        if size < 900000 and 'content' in file_info and file_info['content']:
+            st.sidebar.write("✅ Utilisation de l'API Contents")
+            encoded_content = file_info['content'].replace('\n', '').replace('\r', '')
             decoded_content = base64.b64decode(encoded_content).decode('utf-8')
-            st.sidebar.write(f"✅ Contenu décodé (longueur): {len(decoded_content)}")
-            st.sidebar.write("Premiers caractères:", decoded_content[:100])
-        except Exception as e:
-            st.sidebar.error(f"❌ Erreur décodage base64: {str(e)}")
+            return {
+                'content': decoded_content,
+                'sha': sha
+            }
+        
+        # Sinon, utiliser l'API Blob (pas de limite de taille)
+        st.sidebar.write("🔄 Utilisation de l'API Blob...")
+        blob_url = f"https://api.github.com/repos/{GITHUB_REPO}/git/blobs/{sha}"
+        blob_response = requests.get(blob_url, headers=headers, timeout=30)
+        
+        if blob_response.status_code != 200:
+            st.sidebar.error(f"❌ Erreur Blob: {blob_response.status_code}")
             return None
+        
+        blob_data = blob_response.json()
+        
+        if 'content' not in blob_data:
+            st.sidebar.error("❌ Pas de contenu dans le blob")
+            return None
+        
+        encoded_content = blob_data['content'].replace('\n', '').replace('\r', '')
+        st.sidebar.write(f"📦 Contenu blob encodé: {len(encoded_content)} caractères")
+        
+        decoded_content = base64.b64decode(encoded_content).decode('utf-8')
+        st.sidebar.write(f"✅ Contenu décodé: {len(decoded_content)} caractères")
+        st.sidebar.write("Premiers caractères:", decoded_content[:100])
         
         return {
             'content': decoded_content,
-            'sha': content_json['sha']
+            'sha': sha
         }
         
-    except requests.exceptions.Timeout:
-        st.sidebar.error("❌ Timeout GitHub (>10s)")
-        return None
-    except requests.exceptions.RequestException as e:
-        st.sidebar.error(f"❌ Erreur requête: {str(e)}")
-        return None
     except Exception as e:
-        st.sidebar.error(f"❌ Erreur GitHub GET: {str(e)}")
+        st.sidebar.error(f"❌ Erreur: {str(e)}")
         import traceback
         st.sidebar.code(traceback.format_exc())
         return None
