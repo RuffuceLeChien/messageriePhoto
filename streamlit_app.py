@@ -174,13 +174,38 @@ GITHUB_REPO = st.secrets.get("GITHUB_REPO", "") if hasattr(st, 'secrets') else "
 GITHUB_BRANCH = "main"
 DATA_FILE = "messages_data.json"
 
+def github_update_file(file_path, content, sha=None, message="Update data"):
+    """Met à jour un fichier sur GitHub"""
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        return False
+    
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path}"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    data = {
+        "message": message,
+        "content": base64.b64encode(content.encode('utf-8')).decode('utf-8'),
+        "branch": GITHUB_BRANCH
+    }
+    
+    if sha:
+        data["sha"] = sha
+    
+    try:
+        response = requests.put(url, headers=headers, json=data, timeout=10)
+        return response.status_code in [200, 201]
+    except Exception as e:
+        st.error(f"Erreur GitHub UPDATE: {str(e)}")
+        return False
+
 def github_get_file(file_path):
     """Récupère un fichier depuis GitHub via l'API Blob (pas de limite de taille)"""
     if not GITHUB_TOKEN or not GITHUB_REPO:
-        # st.sidebar.error("❌ GITHUB_TOKEN ou GITHUB_REPO manquant")
         return None
     
-    # D'abord, récupérer le SHA du fichier
     url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{file_path}"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
@@ -188,23 +213,16 @@ def github_get_file(file_path):
     }
     
     try:
-        # st.sidebar.write(f"🌐 Récupération SHA...")
         response = requests.get(url, headers=headers, timeout=10)
         
         if response.status_code != 200:
-            # st.sidebar.error(f"❌ Erreur: {response.status_code}")
             return None
         
         file_info = response.json()
         sha = file_info.get('sha')
         size = file_info.get('size', 0)
         
-        # st.sidebar.write(f"📦 Taille du fichier: {size} octets")
-        # st.sidebar.write(f"🔑 SHA: {sha[:10]}...")
-        
-        # Si le fichier est petit, utiliser le contenu direct
         if size < 900000 and 'content' in file_info and file_info['content']:
-            # st.sidebar.write("✅ Utilisation de l'API Contents")
             encoded_content = file_info['content'].replace('\n', '').replace('\r', '')
             decoded_content = base64.b64decode(encoded_content).decode('utf-8')
             return {
@@ -212,27 +230,19 @@ def github_get_file(file_path):
                 'sha': sha
             }
         
-        # Sinon, utiliser l'API Blob (pas de limite de taille)
-        # st.sidebar.write("🔄 Utilisation de l'API Blob...")
         blob_url = f"https://api.github.com/repos/{GITHUB_REPO}/git/blobs/{sha}"
         blob_response = requests.get(blob_url, headers=headers, timeout=30)
         
         if blob_response.status_code != 200:
-            # st.sidebar.error(f"❌ Erreur Blob: {blob_response.status_code}")
             return None
         
         blob_data = blob_response.json()
         
         if 'content' not in blob_data:
-            # st.sidebar.error("❌ Pas de contenu dans le blob")
             return None
         
         encoded_content = blob_data['content'].replace('\n', '').replace('\r', '')
-        # st.sidebar.write(f"📦 Contenu blob encodé: {len(encoded_content)} caractères")
-        
         decoded_content = base64.b64decode(encoded_content).decode('utf-8')
-        # st.sidebar.write(f"✅ Contenu décodé: {len(decoded_content)} caractères")
-        # st.sidebar.write("Premiers caractères:", decoded_content[:100])
         
         return {
             'content': decoded_content,
@@ -240,44 +250,39 @@ def github_get_file(file_path):
         }
         
     except Exception as e:
-        # st.sidebar.error(f"❌ Erreur: {str(e)}")
-        # import traceback
-        # st.sidebar.code(traceback.format_exc())
         return None
+
+def load_counters():
+    """Charge les compteurs depuis GitHub"""
+    file_data = github_get_file(DATA_FILE)
+    
+    if file_data:
+        try:
+            data = json.loads(file_data['content'])
+            return data.get('counters', {"admin": 0, "user": 0})
+        except:
+            pass
+    return {"admin": 0, "user": 0}
 
 def load_messages():
     """Charge les messages depuis GitHub"""
     try:
-        # st.sidebar.write("🔄 Chargement depuis GitHub...")
         file_data = github_get_file(DATA_FILE)
         
         if not file_data:
-            # st.sidebar.error("❌ Impossible de récupérer le fichier GitHub")
             return []
         
-        # st.sidebar.write("✅ Fichier récupéré")
-        
         content = file_data['content']
-        # st.sidebar.write(f"📝 Taille du contenu: {len(content)} caractères")
-        # st.sidebar.write("Début du contenu:")
-        # st.sidebar.code(content[:200] if len(content) > 200 else content)
         
         if not content or content.strip() == "":
-            # st.sidebar.error("❌ Le fichier est vide")
             return []
         
         try:
             data = json.loads(content)
-            # st.sidebar.write(f"✅ JSON parsé avec succès")
-            # st.sidebar.write(f"Clés trouvées: {list(data.keys())}")
         except json.JSONDecodeError as e:
-            # st.sidebar.error(f"❌ Erreur JSON: {str(e)}")
-            # st.sidebar.write(f"Position de l'erreur: ligne {e.lineno}, colonne {e.colno}")
-            # st.sidebar.write(f"Message: {e.msg}")
             return []
         
         messages_data = data.get('messages', [])
-        # st.sidebar.write(f"📊 {len(messages_data)} messages trouvés dans le JSON")
         
         messages = []
         for idx, msg in enumerate(messages_data):
@@ -293,16 +298,11 @@ def load_messages():
                 messages.append(msg)
                 
             except Exception as e:
-                # st.sidebar.warning(f"⚠️ Erreur message {idx}: {str(e)}")
                 continue
         
-        # st.sidebar.success(f"✅ {len(messages)} messages chargés correctement")
         return messages
         
     except Exception as e:
-        # st.sidebar.error(f"❌ Erreur générale: {str(e)}")
-        # import traceback
-        # st.sidebar.code(traceback.format_exc())
         return []
 
 def save_messages():
@@ -319,19 +319,20 @@ def save_messages():
             
             if 'image_with_text' in msg:
                 img_bytes = io.BytesIO()
-                msg['image_with_text'].save(img_bytes, format='PNG')
+                msg['image_with_text'].save(img_bytes, format='PNG', optimize=False, compress_level=0)
                 msg_copy['image_with_text_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
             
             if 'original_image' in msg:
                 img_bytes = io.BytesIO()
-                msg['original_image'].save(img_bytes, format='PNG')
+                msg['original_image'].save(img_bytes, format='PNG', optimize=False, compress_level=0)
                 msg_copy['original_image_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
             
             messages_to_save.append(msg_copy)
         
         data = {
             'messages': messages_to_save,
-            'passwords': st.session_state.user_passwords
+            'passwords': st.session_state.user_passwords,
+            'counters': st.session_state.counters
         }
         
         file_data = github_get_file(DATA_FILE)
@@ -385,7 +386,6 @@ def verify_human_body_simple(image):
         
         detections = []
         
-        # OpenCV Cascades
         cascades = [
             ('haarcascade_frontalface_default.xml', 5, 30),
             ('haarcascade_profileface.xml', 5, 30),
@@ -404,7 +404,6 @@ def verify_human_body_simple(image):
             except:
                 pass
         
-        # MediaPipe détections
         if MEDIAPIPE_AVAILABLE:
             try:
                 mp_hands = mp.solutions.hands
@@ -440,7 +439,6 @@ def add_text_to_image(image, text):
     if not text or text.strip() == "":
         return image
     
-    # Augmenter le facteur d'échelle pour une meilleure qualité
     scale_factor = 3
     img_copy = image.copy()
     original_size = img_copy.size
@@ -450,9 +448,7 @@ def add_text_to_image(image, text):
     draw = ImageDraw.Draw(txt_layer)
     
     width, height = img_copy.size
-    
-    # Taille de police plus petite et adaptative
-    font_size = int(height * 0.04)  # Réduit de 0.07 à 0.04
+    font_size = int(height * 0.04)
     
     font = None
     font_paths = [
@@ -476,8 +472,7 @@ def add_text_to_image(image, text):
     if font is None:
         font = ImageFont.load_default()
     
-    # Découper le texte en plusieurs lignes
-    max_width = width * 0.85  # 85% de la largeur de l'image
+    max_width = width * 0.85
     lines = []
     words = text.split()
     current_line = ""
@@ -500,7 +495,6 @@ def add_text_to_image(image, text):
     if current_line:
         lines.append(current_line)
     
-    # Si une seule ligne est trop longue, la couper par caractères
     final_lines = []
     for line in lines:
         try:
@@ -510,18 +504,15 @@ def add_text_to_image(image, text):
             line_width = len(line) * (font_size // 2)
         
         if line_width > max_width:
-            # Couper la ligne en plusieurs morceaux
             chars_per_line = int(len(line) * (max_width / line_width))
             for i in range(0, len(line), chars_per_line):
                 final_lines.append(line[i:i+chars_per_line])
         else:
             final_lines.append(line)
     
-    # Calculer la hauteur totale du texte
-    line_height = font_size * 1.4  # Espacement entre les lignes
+    line_height = font_size * 1.4
     total_text_height = len(final_lines) * line_height
     
-    # Si trop de lignes, réduire encore la taille de police
     if len(final_lines) > 5:
         font_size = int(height * 0.03)
         try:
@@ -536,7 +527,6 @@ def add_text_to_image(image, text):
     
     padding = int(font_size * 0.8)
     
-    # Calculer les dimensions du rectangle
     max_line_width = 0
     for line in final_lines:
         try:
@@ -546,7 +536,6 @@ def add_text_to_image(image, text):
             line_width = len(line) * (font_size // 2)
         max_line_width = max(max_line_width, line_width)
     
-    # Position du rectangle (centré en bas)
     rect_width = max_line_width + padding * 2
     rect_height = total_text_height + padding * 2
     x = (width - rect_width) // 2
@@ -555,7 +544,6 @@ def add_text_to_image(image, text):
     rect = [x, y, x + rect_width, y + rect_height]
     radius = padding
     
-    # Ombre portée
     shadow_offset = 6
     shadow = Image.new('RGBA', img_copy.size, (0, 0, 0, 0))
     shadow_draw = ImageDraw.Draw(shadow)
@@ -564,11 +552,9 @@ def add_text_to_image(image, text):
     txt_layer = Image.alpha_composite(txt_layer, shadow)
     draw = ImageDraw.Draw(txt_layer)
     
-    # Rectangle de fond
     draw.rounded_rectangle(rect, radius=radius, fill=(20, 20, 20, 230))
     draw.rounded_rectangle(rect, radius=radius, outline=(255, 255, 255, 180), width=2)
     
-    # Dessiner chaque ligne de texte
     current_y = y + padding
     for line in final_lines:
         try:
@@ -579,14 +565,12 @@ def add_text_to_image(image, text):
         
         line_x = x + (rect_width - line_width) // 2
         
-        # Ombre du texte
         for offset in [(1, 1), (-1, 1), (1, -1), (-1, -1), (0, 2), (2, 0)]:
             try:
                 draw.text((line_x + offset[0], current_y + offset[1]), line, font=font, fill=(0, 0, 0, 200), embedded_color=True)
             except:
                 draw.text((line_x + offset[0], current_y + offset[1]), line, font=font, fill=(0, 0, 0, 200))
         
-        # Texte principal
         try:
             draw.text((line_x, current_y), line, font=font, fill=(255, 255, 255, 255), embedded_color=True)
         except:
@@ -594,15 +578,25 @@ def add_text_to_image(image, text):
         
         current_y += line_height
     
-    # Composer l'image finale
     img_copy = img_copy.convert('RGBA')
     img_copy = Image.alpha_composite(img_copy, txt_layer)
-    
-    # Redimensionner à la taille originale avec haute qualité
     img_copy = img_copy.resize(original_size, Image.LANCZOS)
     img_copy = img_copy.convert('RGB')
     
     return img_copy
+
+def increment_counter(user):
+    """Incrémente le compteur de l'utilisateur avec animation"""
+    st.session_state.counters[user] = st.session_state.counters.get(user, 0) + 1
+    counter_value = st.session_state.counters[user]
+    
+    st.balloons()
+    
+    if counter_value % 10 == 0:
+        st.snow()
+        st.success(f"🎉 **{counter_value} messages** ! Incroyable ! 🎉")
+    elif counter_value % 5 == 0:
+        st.success(f"🌟 **{counter_value} messages** ! Continue comme ça ! 🌟")
 
 def save_message(image, text, original_image, sender):
     """Sauvegarde un message"""
@@ -633,124 +627,6 @@ def check_new_messages():
             st.toast("📬 Nouveau message !", icon="📬")
     
     st.session_state.last_message_count = current_count
-
-def login_page():
-    """Page de connexion"""
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("<h1 style='font-size: 4rem; margin-bottom: 1rem;'>📸</h1>", unsafe_allow_html=True)
-    st.title("Messagerie Photo")
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        password = st.text_input("", type="password", key="login_input", placeholder="Code d'accès", label_visibility="collapsed")
-        
-        if st.button("Se connecter", type="primary", use_container_width=True):
-            if password == "ruffucelechien":
-                st.session_state.authenticated = True
-                st.session_state.is_admin = True
-                st.session_state.current_user = "admin"
-                st.session_state.last_message_count = len(st.session_state.messages)
-                st.rerun()
-            elif password in st.session_state.user_passwords:
-                st.session_state.authenticated = True
-                st.session_state.is_admin = False
-                st.session_state.current_user = "user"
-                st.session_state.last_message_count = len(st.session_state.messages)
-                st.rerun()
-            else:
-                st.error("❌ Code incorrect")
-
-def admin_panel():
-    """Panel admin"""
-    st.sidebar.title("👑 Panel Admin")
-    st.sidebar.subheader("Mots de passe")
-    
-    for idx, pwd in enumerate(st.session_state.user_passwords):
-        col1, col2 = st.sidebar.columns([3, 1])
-        col1.text(pwd)
-        if col2.button("🗑️", key=f"del_pwd_{idx}"):
-            st.session_state.user_passwords.pop(idx)
-            save_messages()
-            st.rerun()
-    
-    new_pwd = st.sidebar.text_input("Nouveau mot de passe", key="new_pwd")
-    if st.sidebar.button("➕ Ajouter"):
-        if new_pwd and new_pwd not in st.session_state.user_passwords:
-            st.session_state.user_passwords.append(new_pwd)
-            save_messages()
-            st.sidebar.success("✅ Ajouté")
-            st.rerun()
-
-def load_counters():
-    """Charge les compteurs depuis GitHub"""
-    file_data = github_get_file(DATA_FILE)
-    
-    if file_data:
-        try:
-            data = json.loads(file_data['content'])
-            return data.get('counters', {"admin": 0, "user": 0})
-        except:
-            pass
-    return {"admin": 0, "user": 0}
-
-def save_counters():
-    """Sauvegarde les compteurs sur GitHub"""
-    try:
-        messages_to_save = []
-        for msg in st.session_state.messages:
-            msg_copy = {
-                'timestamp': msg['timestamp'],
-                'text': msg['text'],
-                'sender': msg['sender'],
-                'id': msg['id']
-            }
-            
-            if 'image_with_text' in msg:
-                img_bytes = io.BytesIO()
-                msg['image_with_text'].save(img_bytes, format='PNG', optimize=False, compress_level=0)
-                msg_copy['image_with_text_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
-            
-            if 'original_image' in msg:
-                img_bytes = io.BytesIO()
-                msg['original_image'].save(img_bytes, format='PNG', optimize=False, compress_level=0)
-                msg_copy['original_image_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
-            
-            messages_to_save.append(msg_copy)
-        
-        data = {
-            'messages': messages_to_save,
-            'passwords': st.session_state.user_passwords,
-            'counters': st.session_state.counters  # Ajouter les compteurs
-        }
-        
-        file_data = github_get_file(DATA_FILE)
-        sha = file_data['sha'] if file_data else None
-        
-        return github_update_file(DATA_FILE, json.dumps(data, indent=2), sha, "Update messages and counters")
-        
-    except Exception as e:
-        st.error(f"Erreur sauvegarde: {str(e)}")
-        return False
-
-def increment_counter(user):
-    """Incrémente le compteur de l'utilisateur avec animation"""
-    st.session_state.counters[user] = st.session_state.counters.get(user, 0) + 1
-    
-    # Animation de célébration
-    counter_value = st.session_state.counters[user]
-    
-    # Ballons pour chaque message
-    st.balloons()
-    
-    # Message spécial pour les jalons
-    if counter_value % 10 == 0:
-        st.snow()  # Neige pour les multiples de 10
-        st.success(f"🎉 **{counter_value} messages** ! Incroyable ! 🎉")
-    elif counter_value % 5 == 0:
-        st.success(f"🌟 **{counter_value} messages** ! Continue comme ça ! 🌟")
-    
-    save_counters()
 
 def display_counters():
     """Affiche les compteurs avec style"""
@@ -814,13 +690,60 @@ def display_counters():
         </div>
         """, unsafe_allow_html=True)
 
+def login_page():
+    """Page de connexion"""
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size: 4rem; margin-bottom: 1rem;'>💕</h1>", unsafe_allow_html=True)
+    st.title("Messagerie Photo")
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        password = st.text_input("", type="password", key="login_input", placeholder="Code d'accès", label_visibility="collapsed")
+        
+        if st.button("Se connecter", type="primary", use_container_width=True):
+            if password == "ruffucelechien":
+                st.session_state.authenticated = True
+                st.session_state.is_admin = True
+                st.session_state.current_user = "admin"
+                st.session_state.last_message_count = len(st.session_state.messages)
+                st.rerun()
+            elif password in st.session_state.user_passwords:
+                st.session_state.authenticated = True
+                st.session_state.is_admin = False
+                st.session_state.current_user = "user"
+                st.session_state.last_message_count = len(st.session_state.messages)
+                st.rerun()
+            else:
+                st.error("❌ Code incorrect")
+
+def admin_panel():
+    """Panel admin"""
+    st.sidebar.title("👑 Panel Admin")
+    st.sidebar.subheader("Mots de passe")
+    
+    for idx, pwd in enumerate(st.session_state.user_passwords):
+        col1, col2 = st.sidebar.columns([3, 1])
+        col1.text(pwd)
+        if col2.button("🗑️", key=f"del_pwd_{idx}"):
+            st.session_state.user_passwords.pop(idx)
+            save_messages()
+            st.rerun()
+    
+    new_pwd = st.sidebar.text_input("Nouveau mot de passe", key="new_pwd")
+    if st.sidebar.button("➕ Ajouter"):
+        if new_pwd and new_pwd not in st.session_state.user_passwords:
+            st.session_state.user_passwords.append(new_pwd)
+            save_messages()
+            st.sidebar.success("✅ Ajouté")
+            st.rerun()
+
 def main_app():
     """Application principale"""
-    st.title(" Messagerie Photo")
+    st.title("💕 Messagerie Photo")
 
     display_counters()
     
-    # Afficher l'état du système dans la sidebar
     with st.sidebar:
         st.write("### 📊 État du système")
         st.write(f"Messages en mémoire : **{len(st.session_state.messages)}**")
@@ -831,6 +754,7 @@ def main_app():
         if st.button("🔄 Recharger depuis GitHub"):
             st.session_state.messages = load_messages()
             st.session_state.user_passwords = load_passwords()
+            st.session_state.counters = load_counters()
             st.rerun()
     
     check_new_messages()
@@ -863,7 +787,7 @@ def main_app():
         else:
             text_input = st.text_input("", key="text_msg", placeholder="💬 Ajouter un message...", label_visibility="collapsed")
             
-            if st.button("✉️ Envoyer", type="primary", use_container_width=True):
+            if st.button("💕 Envoyer", type="primary", use_container_width=True):
                 image_with_text = add_text_to_image(image, text_input) if text_input else image
                 save_message(image_with_text, text_input, image, st.session_state.current_user)
                 st.success("✅ Envoyé !")
