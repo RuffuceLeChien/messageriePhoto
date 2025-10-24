@@ -674,7 +674,7 @@ def display_counters():
         admin_count = st.session_state.counters.get("admin", 0)
         st.markdown(f"""
         <div class="counter-container">
-            <div class="counter-title">👤 Le grand, beau, magnifique, merveilleurx, grandiose, splendide, humble cousin</div>
+            <div class="counter-title">Le grand, beau, magnifique, merveilleurx, grandiose, splendide, humble cousin</div>
             <div class="counter-value">{admin_count}</div>
             <div class="counter-label">messages envoyés</div>
         </div>
@@ -684,7 +684,7 @@ def display_counters():
         user_count = st.session_state.counters.get("user", 0)
         st.markdown(f"""
         <div class="counter-container">
-            <div class="counter-title">👤 La cousine</div>
+            <div class="counter-title">La cousine</div>
             <div class="counter-value">{user_count}</div>
             <div class="counter-label">messages envoyés</div>
         </div>
