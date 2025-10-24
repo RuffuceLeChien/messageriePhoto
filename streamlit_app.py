@@ -30,7 +30,7 @@ except ImportError:
     MEDIAPIPE_AVAILABLE = False
 
 # Configuration de la page
-st.set_page_config(page_title="💕 Messagerie", page_icon="💕", layout="centered")
+st.set_page_config(page_title="Messagerie", page_icon="📸", layout="centered")
 
 # CSS pour un design moderne et élégant
 st.markdown("""
@@ -674,7 +674,7 @@ def display_counters():
         admin_count = st.session_state.counters.get("admin", 0)
         st.markdown(f"""
         <div class="counter-container">
-            <div class="counter-title">👑 Admin</div>
+            <div class="counter-title">👤 Le grand, beau, magnifique, merveilleurx, grandiose, splendide, humble cousin</div>
             <div class="counter-value">{admin_count}</div>
             <div class="counter-label">messages envoyés</div>
         </div>
@@ -684,7 +684,7 @@ def display_counters():
         user_count = st.session_state.counters.get("user", 0)
         st.markdown(f"""
         <div class="counter-container">
-            <div class="counter-title">💕 Utilisateur</div>
+            <div class="counter-title">👤 La cousine</div>
             <div class="counter-value">{user_count}</div>
             <div class="counter-label">messages envoyés</div>
         </div>
@@ -693,7 +693,7 @@ def display_counters():
 def login_page():
     """Page de connexion"""
     st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("<h1 style='font-size: 4rem; margin-bottom: 1rem;'>💕</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size: 4rem; margin-bottom: 1rem;'>📸</h1>", unsafe_allow_html=True)
     st.title("Messagerie Photo")
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -740,7 +740,7 @@ def admin_panel():
 
 def main_app():
     """Application principale"""
-    st.title("💕 Messagerie Photo")
+    st.title("📸 Messagerie Photo")
 
     display_counters()
     
@@ -787,7 +787,7 @@ def main_app():
         else:
             text_input = st.text_input("", key="text_msg", placeholder="💬 Ajouter un message...", label_visibility="collapsed")
             
-            if st.button("💕 Envoyer", type="primary", use_container_width=True):
+            if st.button("✉️ Envoyer", type="primary", use_container_width=True):
                 image_with_text = add_text_to_image(image, text_input) if text_input else image
                 save_message(image_with_text, text_input, image, st.session_state.current_user)
                 st.success("✅ Envoyé !")
