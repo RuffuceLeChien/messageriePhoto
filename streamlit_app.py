@@ -682,7 +682,7 @@ def admin_panel():
             st.sidebar.success("✅ Ajouté")
             st.rerun()
 
-            def load_counters():
+def load_counters():
     """Charge les compteurs depuis GitHub"""
     file_data = github_get_file(DATA_FILE)
     
