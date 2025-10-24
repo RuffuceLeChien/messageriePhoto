@@ -319,12 +319,12 @@ def save_messages():
             
             if 'image_with_text' in msg:
                 img_bytes = io.BytesIO()
-                msg['image_with_text'].save(img_bytes, format='JPEG', quality=95, optimize=True, subsampling=0)
+                msg['image_with_text'].save(img_bytes, format='PNG')
                 msg_copy['image_with_text_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
             
             if 'original_image' in msg:
                 img_bytes = io.BytesIO()
-                msg['original_image'].save(img_bytes, format='JPEG', quality=95, optimize=True, subsampling=0)
+                msg['original_image'].save(img_bytes, format='PNG')
                 msg_copy['original_image_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
             
             messages_to_save.append(msg_copy)
@@ -370,6 +370,8 @@ if 'current_user' not in st.session_state:
     st.session_state.current_user = None
 if 'notification_enabled' not in st.session_state:
     st.session_state.notification_enabled = False
+if 'counters' not in st.session_state:
+    st.session_state.counters = load_counters()
 
 def verify_human_body_simple(image):
     """Vérifie la présence d'un corps humain avec OpenCV + MediaPipe"""
@@ -613,6 +615,7 @@ def save_message(image, text, original_image, sender):
         'id': int(datetime.now().timestamp() * 1000)
     }
     st.session_state.messages.append(message)
+    increment_counter(sender)
     save_messages()
 
 def delete_message(message_id):
@@ -679,9 +682,143 @@ def admin_panel():
             st.sidebar.success("✅ Ajouté")
             st.rerun()
 
+            def load_counters():
+    """Charge les compteurs depuis GitHub"""
+    file_data = github_get_file(DATA_FILE)
+    
+    if file_data:
+        try:
+            data = json.loads(file_data['content'])
+            return data.get('counters', {"admin": 0, "user": 0})
+        except:
+            pass
+    return {"admin": 0, "user": 0}
+
+def save_counters():
+    """Sauvegarde les compteurs sur GitHub"""
+    try:
+        messages_to_save = []
+        for msg in st.session_state.messages:
+            msg_copy = {
+                'timestamp': msg['timestamp'],
+                'text': msg['text'],
+                'sender': msg['sender'],
+                'id': msg['id']
+            }
+            
+            if 'image_with_text' in msg:
+                img_bytes = io.BytesIO()
+                msg['image_with_text'].save(img_bytes, format='PNG', optimize=False, compress_level=0)
+                msg_copy['image_with_text_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
+            
+            if 'original_image' in msg:
+                img_bytes = io.BytesIO()
+                msg['original_image'].save(img_bytes, format='PNG', optimize=False, compress_level=0)
+                msg_copy['original_image_b64'] = base64.b64encode(img_bytes.getvalue()).decode()
+            
+            messages_to_save.append(msg_copy)
+        
+        data = {
+            'messages': messages_to_save,
+            'passwords': st.session_state.user_passwords,
+            'counters': st.session_state.counters  # Ajouter les compteurs
+        }
+        
+        file_data = github_get_file(DATA_FILE)
+        sha = file_data['sha'] if file_data else None
+        
+        return github_update_file(DATA_FILE, json.dumps(data, indent=2), sha, "Update messages and counters")
+        
+    except Exception as e:
+        st.error(f"Erreur sauvegarde: {str(e)}")
+        return False
+
+def increment_counter(user):
+    """Incrémente le compteur de l'utilisateur avec animation"""
+    st.session_state.counters[user] = st.session_state.counters.get(user, 0) + 1
+    
+    # Animation de célébration
+    counter_value = st.session_state.counters[user]
+    
+    # Ballons pour chaque message
+    st.balloons()
+    
+    # Message spécial pour les jalons
+    if counter_value % 10 == 0:
+        st.snow()  # Neige pour les multiples de 10
+        st.success(f"🎉 **{counter_value} messages** ! Incroyable ! 🎉")
+    elif counter_value % 5 == 0:
+        st.success(f"🌟 **{counter_value} messages** ! Continue comme ça ! 🌟")
+    
+    save_counters()
+
+def display_counters():
+    """Affiche les compteurs avec style"""
+    st.markdown("""
+    <style>
+        .counter-container {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border: 2px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .counter-title {
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+        .counter-value {
+            color: #f5576c;
+            font-size: 3rem;
+            font-weight: 700;
+            text-align: center;
+            text-shadow: 0 2px 10px rgba(245, 87, 108, 0.5);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .counter-label {
+            color: rgba(255,255,255,0.8);
+            text-align: center;
+            font-size: 0.9rem;
+            margin-top: 0.3rem;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        admin_count = st.session_state.counters.get("admin", 0)
+        st.markdown(f"""
+        <div class="counter-container">
+            <div class="counter-title">👑 Admin</div>
+            <div class="counter-value">{admin_count}</div>
+            <div class="counter-label">messages envoyés</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        user_count = st.session_state.counters.get("user", 0)
+        st.markdown(f"""
+        <div class="counter-container">
+            <div class="counter-title">💕 Utilisateur</div>
+            <div class="counter-value">{user_count}</div>
+            <div class="counter-label">messages envoyés</div>
+        </div>
+        """, unsafe_allow_html=True)
+
 def main_app():
     """Application principale"""
     st.title(" Messagerie Photo")
+
+    display_counters()
     
     # Afficher l'état du système dans la sidebar
     with st.sidebar:
