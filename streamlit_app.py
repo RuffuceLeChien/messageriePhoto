@@ -353,10 +353,10 @@ def load_passwords():
     if file_data:
         try:
             data = json.loads(file_data['content'])
-            return data.get('passwords', ["motdepasse123"])
+            return data.get('passwords', ["crush"])
         except:
             pass
-    return ["motdepasse123"]
+    return ["crush"]
 
 def send_telegram_notification(sender, has_text):
     """Envoie une notification Telegram au groupe"""
@@ -364,9 +364,9 @@ def send_telegram_notification(sender, has_text):
         return False
     
     try:
-        sender_name = "Admin 👑" if sender == "admin" else "Utilisateur 👤"
+        sender_name = "un être splendide" if sender == "admin" else "Une merveilleuse fée"
         
-        message = f"📸 Nouveau message de {sender_name}!"
+        message = f"📸 {sender_name} a partager une petit bout de paradi!"
         if has_text:
             message += " (avec texte)"
         
@@ -638,8 +638,23 @@ def save_message(image, text, original_image, sender):
     send_telegram_notification(sender, bool(text))
 
 def delete_message(message_id):
-    """Supprime un message"""
+    """Supprime un message et décrémente le compteur"""
+    # Trouver le message à supprimer pour récupérer l'expéditeur
+    message_to_delete = None
+    for msg in st.session_state.messages:
+        if msg['id'] == message_id:
+            message_to_delete = msg
+            break
+    
+    # Supprimer le message
     st.session_state.messages = [msg for msg in st.session_state.messages if msg['id'] != message_id]
+    
+    # Décrémenter le compteur de l'expéditeur
+    if message_to_delete:
+        sender = message_to_delete['sender']
+        if sender in st.session_state.counters and st.session_state.counters[sender] > 0:
+            st.session_state.counters[sender] -= 1
+    
     save_messages()
 
 def check_new_messages():
@@ -699,7 +714,7 @@ def display_counters():
         admin_count = st.session_state.counters.get("admin", 0)
         st.markdown(f"""
         <div class="counter-container">
-            <div class="counter-title">Le grand, beau, magnifique, merveilleurx, grandiose, splendide, humble cousin</div>
+            <div class="counter-title">Le grand, beau, magnifique, merveilleux, grandiose, splendide, humble cousin</div>
             <div class="counter-value">{admin_count}</div>
             <div class="counter-label">messages envoyés</div>
         </div>
@@ -709,7 +724,7 @@ def display_counters():
         user_count = st.session_state.counters.get("user", 0)
         st.markdown(f"""
         <div class="counter-container">
-            <div class="counter-title">La cousine</div>
+            <div class="counter-title">La cousine 😘</div>
             <div class="counter-value">{user_count}</div>
             <div class="counter-label">messages envoyés</div>
         </div>
@@ -770,7 +785,7 @@ def main_app():
     display_counters()
     
     with st.sidebar:
-        st.write("### 🐛 Debug Telegram")
+        """st.write("### 🐛 Debug Telegram")
         st.write(f"Bot Token configuré : **{'✅ Oui' if TELEGRAM_BOT_TOKEN else '❌ Non'}**")
         st.write(f"Chat ID configuré : **{'✅ Oui' if TELEGRAM_GROUP_CHAT_ID else '❌ Non'}**")
     
@@ -785,7 +800,7 @@ def main_app():
             if result:
                 st.success("✅ Notification envoyée !")
             else:
-                st.error("❌ Échec de l'envoi")
+                st.error("❌ Échec de l'envoi")"""
 
         st.write("### 📊 État du système")
         st.write(f"Messages en mémoire : **{len(st.session_state.messages)}**")
