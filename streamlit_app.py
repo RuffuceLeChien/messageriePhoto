@@ -783,22 +783,22 @@ def main_app():
     display_counters()
     
     with st.sidebar:
-        """st.write("### 🐛 Debug Telegram")
-        st.write(f"Bot Token configuré : **{'✅ Oui' if TELEGRAM_BOT_TOKEN else '❌ Non'}**")
-        st.write(f"Chat ID configuré : **{'✅ Oui' if TELEGRAM_GROUP_CHAT_ID else '❌ Non'}**")
+        #st.write("### 🐛 Debug Telegram")
+        #st.write(f"Bot Token configuré : **{'✅ Oui' if TELEGRAM_BOT_TOKEN else '❌ Non'}**")
+        #st.write(f"Chat ID configuré : **{'✅ Oui' if TELEGRAM_GROUP_CHAT_ID else '❌ Non'}**")
     
-        if TELEGRAM_BOT_TOKEN:
-            st.write(f"Token (10 premiers chars) : `{TELEGRAM_BOT_TOKEN[:10]}...`")
-        if TELEGRAM_GROUP_CHAT_ID:
-            st.write(f"Chat ID : `{TELEGRAM_GROUP_CHAT_ID}`")
+        #if TELEGRAM_BOT_TOKEN:
+            #st.write(f"Token (10 premiers chars) : `{TELEGRAM_BOT_TOKEN[:10]}...`")
+        #if TELEGRAM_GROUP_CHAT_ID:
+            #st.write(f"Chat ID : `{TELEGRAM_GROUP_CHAT_ID}`")
     
     # Bouton de test
-        if st.button("🧪 Tester notification"):
-            result = send_telegram_notification("admin", True)
-            if result:
-                st.success("✅ Notification envoyée !")
-            else:
-                st.error("❌ Échec de l'envoi")"""
+        #if st.button("🧪 Tester notification"):
+            #result = send_telegram_notification("admin", True)
+            #if result:
+                #st.success("✅ Notification envoyée !")
+            #else:
+                #st.error("❌ Échec de l'envoi")
 
         st.write("### 📊 État du système")
         st.write(f"Messages en mémoire : **{len(st.session_state.messages)}**")
