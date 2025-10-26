@@ -173,6 +173,8 @@ GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", "") if hasattr(st, 'secrets') else
 GITHUB_REPO = st.secrets.get("GITHUB_REPO", "") if hasattr(st, 'secrets') else ""
 GITHUB_BRANCH = "main"
 DATA_FILE = "messages_data.json"
+TELEGRAM_BOT_TOKEN = st.secrets.get("TELEGRAM_BOT_TOKEN", "") if hasattr(st, 'secrets') else ""
+TELEGRAM_GROUP_CHAT_ID = st.secrets.get("TELEGRAM_GROUP_CHAT_ID", "") if hasattr(st, 'secrets') else ""
 
 def github_update_file(file_path, content, sha=None, message="Update data"):
     """Met à jour un fichier sur GitHub"""
@@ -355,6 +357,28 @@ def load_passwords():
         except:
             pass
     return ["motdepasse123"]
+
+def send_telegram_notification(sender, has_text):
+    """Envoie une notification Telegram au groupe"""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_GROUP_CHAT_ID:
+        return False
+    
+    try:
+        sender_name = "Admin 👑" if sender == "admin" else "Utilisateur 👤"
+        
+        message = f"📸 Nouveau message de {sender_name}!"
+        if has_text:
+            message += " (avec texte)"
+        
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        response = requests.post(url, json={
+            "chat_id": TELEGRAM_GROUP_CHAT_ID,
+            "text": message
+        }, timeout=5)
+        
+        return response.status_code == 200
+    except:
+        return False
 
 # Initialisation des variables de session
 if 'authenticated' not in st.session_state:
@@ -611,6 +635,7 @@ def save_message(image, text, original_image, sender):
     st.session_state.messages.append(message)
     increment_counter(sender)
     save_messages()
+    send_telegram_notification(sender, bool(text))
 
 def delete_message(message_id):
     """Supprime un message"""
@@ -719,7 +744,7 @@ def login_page():
 
 def admin_panel():
     """Panel admin"""
-    st.sidebar.title("👑 Panel Admin")
+    st.sidebar.title("Panel Admin")
     st.sidebar.subheader("Mots de passe")
     
     for idx, pwd in enumerate(st.session_state.user_passwords):
