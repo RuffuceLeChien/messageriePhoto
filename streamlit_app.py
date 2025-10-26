@@ -367,8 +367,6 @@ def send_telegram_notification(sender, has_text):
         sender_name = "un être splendide" if sender == "admin" else "Une merveilleuse fée"
         
         message = f"📸 {sender_name} a partager une petit bout de paradi!"
-        if has_text:
-            message += " (avec texte)"
         
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         response = requests.post(url, json={
