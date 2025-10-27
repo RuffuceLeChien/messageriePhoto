@@ -364,9 +364,54 @@ def send_telegram_notification(sender, has_text):
         return False
     
     try:
-        sender_name = "un être splendide" if sender == "admin" else "Une merveilleuse fée"
+        import random
         
-        message = f"📸 {sender_name} a partager une vision majestueuse"
+        sender_name = "un homme grandiose" if sender == "admin" else "une beauté absolue"
+        
+        # Messages pour l'admin
+        messages_admin = [
+            f"📸 Nouveau message de ton homme !",
+            f"✨ {sender_name} vient de poster une photo !",
+            f"🎉 Regarde ! un être malicieux a envoyé quelque chose !",
+            f"💌 Tu as reçu un message rempli d'affection !",
+            f"🔔 Ding dong ! C'est encore et toujours moi !",
+            f"📬 Nouveau dans la boîte : tu l'attendais et il est enfin là !",
+            f"🌟 {sender_name} pense (encore et toujours) à toi !",
+            f"💕 Message tout frais de ton plus grand fan !",
+            f"🎨 ton cousin PREFERE partage un instant de sa vie avec toi !",
+            f"🚀 Message en approche de ton future mari !",
+            f"Ton impatience de voir ce message est palpable",
+            f"On espère que ta famille ne tombera pas sur ce message",
+            f"Si tu réagie comme ça a chaque notif tes potes vont se poser des questions",
+            f"C'est pour toi bébou... il a encore pensé a toi !",
+            f"Viens voir ce corps d'apollon",
+
+        ]
+        
+        # Messages pour l'utilisateur
+        messages_user = [
+            f"📸 Nouveau message de ta cousine préférée !",
+            f"✨ {sender_name} vient de poster une photo !",
+            f"🎉 Regarde ! une vision de paradie vient d'apparaitre !",
+            f"💌 Tu as reçu un message de la femme de ta vie !",
+            f"🔔 Ding dong ! tu as enfin reçu ce que tu attendais tout ce temps !",
+            f"📬 Viens voir cette pepite qui vient d'arriver !",
+            f"🌟 {sender_name} pense à toi !",
+            f"💕 Message tout frais de ta cousine préférée !",
+            f"🎨 {sender_name} partage un moment avec toi !",
+            f"🚀 Un message arrive en direction de ton coeur !",
+            f"Arrete d'esperer c'est ta cousine ! il y aura rien de plus !",
+            f"Attend au moins la fin de ton cours pour voir ce message",
+            f"Assis toi pour pas tomber par terre face a une tel beautée",
+            f"C'est bon tu vas passer une bonne journnée grace à ce message",
+            f"baisse ta luminositée, tu vas être éblouie",
+        ]
+        
+        # Choisir un message aléatoire
+        if sender == "admin":
+            base_message = random.choice(messages_user)
+        else:
+            base_message = random.choice(messages_admin)
         
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         response = requests.post(url, json={
