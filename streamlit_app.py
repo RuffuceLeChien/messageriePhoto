@@ -828,6 +828,26 @@ def main_app():
     display_counters()
     
     with st.sidebar:
+        st.write(f"OpenCV disponible : **{'✅' if CV2_AVAILABLE else '❌'}**")
+        if CV2_AVAILABLE:
+            try:
+                st.write(f"OpenCV version : **{cv2.__version__}**")
+            except:
+                st.write("⚠️ OpenCV importé mais version inaccessible")
+    
+        st.write(f"MediaPipe disponible : **{'✅' if MEDIAPIPE_AVAILABLE else '❌'}**")
+        if MEDIAPIPE_AVAILABLE:
+            try:
+                st.write(f"MediaPipe version : **{mp.__version__}**")
+            except:
+                st.write("⚠️ MediaPipe importé mais version inaccessible")
+    
+        st.write(f"Numpy disponible : **{'✅' if 'np' in dir() else '❌'}**")
+        if 'np' in dir():
+            try:
+                st.write(f"Numpy version : **{np.__version__}**")
+            except:
+                pass
         #st.write("### 🐛 Debug Telegram")
         #st.write(f"Bot Token configuré : **{'✅ Oui' if TELEGRAM_BOT_TOKEN else '❌ Non'}**")
         #st.write(f"Chat ID configuré : **{'✅ Oui' if TELEGRAM_GROUP_CHAT_ID else '❌ Non'}**")
