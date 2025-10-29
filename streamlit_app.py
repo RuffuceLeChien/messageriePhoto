@@ -404,7 +404,7 @@ def send_telegram_notification(sender, has_text):
             f"Attend au moins la fin de ton cours pour voir ce message",
             f"Assis toi pour pas tomber par terre face a une tel beautée",
             f"C'est bon tu vas passer une bonne journnée grace à ce message",
-            f"baisse ta luminositée, tu vas être éblouie",
+            f"Baisse ta luminositée, tu vas être éblouie",
         ]
         
         # Choisir un message aléatoire
@@ -428,6 +428,10 @@ if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
+if 'libs_checked' not in st.session_state:
+    if not CV2_AVAILABLE or not MEDIAPIPE_AVAILABLE:
+        reload_heavy_libraries()
+    st.session_state.libs_checked = True
 if 'messages' not in st.session_state:
     st.session_state.messages = load_messages()
 if 'user_passwords' not in st.session_state:
@@ -800,9 +804,43 @@ def login_page():
             else:
                 st.error("❌ Code incorrect")
 
+def reload_heavy_libraries():
+    """Force le rechargement des bibliothèques lourdes"""
+    global CV2_AVAILABLE, MEDIAPIPE_AVAILABLE, cv2, mp, np
+    
+    try:
+        import importlib
+        import sys
+        
+        # Recharger OpenCV
+        if 'cv2' in sys.modules:
+            del sys.modules['cv2']
+        import cv2
+        import numpy as np
+        CV2_AVAILABLE = True
+        
+        # Recharger MediaPipe
+        if 'mediapipe' in sys.modules:
+            del sys.modules['mediapipe']
+        import mediapipe as mp
+        MEDIAPIPE_AVAILABLE = True
+        
+        return True
+    except Exception as e:
+        return False
+
 def admin_panel():
     """Panel admin"""
     st.sidebar.title("Panel Admin")
+    if not CV2_AVAILABLE or not MEDIAPIPE_AVAILABLE:
+        st.warning("⚠️ Bibliothèques non chargées")
+        if st.button("🔄 Recharger les bibliothèques"):
+            with st.spinner("Rechargement..."):
+                if reload_heavy_libraries():
+                    st.success("✅ Rechargées avec succès !")
+                    st.rerun()
+                else:
+                    st.error("❌ Échec du rechargement")
     st.sidebar.subheader("Mots de passe")
     
     for idx, pwd in enumerate(st.session_state.user_passwords):
