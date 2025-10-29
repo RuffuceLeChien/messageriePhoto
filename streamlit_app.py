@@ -423,6 +423,31 @@ def send_telegram_notification(sender, has_text):
     except:
         return False
 
+def reload_heavy_libraries():
+    """Force le rechargement des bibliothèques lourdes"""
+    global CV2_AVAILABLE, MEDIAPIPE_AVAILABLE, cv2, mp, np
+    
+    try:
+        import importlib
+        import sys
+        
+        # Recharger OpenCV
+        if 'cv2' in sys.modules:
+            del sys.modules['cv2']
+        import cv2
+        import numpy as np
+        CV2_AVAILABLE = True
+        
+        # Recharger MediaPipe
+        if 'mediapipe' in sys.modules:
+            del sys.modules['mediapipe']
+        import mediapipe as mp
+        MEDIAPIPE_AVAILABLE = True
+        
+        return True
+    except Exception as e:
+        return False
+
 # Initialisation des variables de session
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
@@ -803,31 +828,6 @@ def login_page():
                 st.rerun()
             else:
                 st.error("❌ Code incorrect")
-
-def reload_heavy_libraries():
-    """Force le rechargement des bibliothèques lourdes"""
-    global CV2_AVAILABLE, MEDIAPIPE_AVAILABLE, cv2, mp, np
-    
-    try:
-        import importlib
-        import sys
-        
-        # Recharger OpenCV
-        if 'cv2' in sys.modules:
-            del sys.modules['cv2']
-        import cv2
-        import numpy as np
-        CV2_AVAILABLE = True
-        
-        # Recharger MediaPipe
-        if 'mediapipe' in sys.modules:
-            del sys.modules['mediapipe']
-        import mediapipe as mp
-        MEDIAPIPE_AVAILABLE = True
-        
-        return True
-    except Exception as e:
-        return False
 
 def admin_panel():
     """Panel admin"""
