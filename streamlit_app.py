@@ -832,15 +832,6 @@ def reload_heavy_libraries():
 def admin_panel():
     """Panel admin"""
     st.sidebar.title("Panel Admin")
-    if not CV2_AVAILABLE or not MEDIAPIPE_AVAILABLE:
-        st.warning("⚠️ Bibliothèques non chargées")
-        if st.button("🔄 Recharger les bibliothèques"):
-            with st.spinner("Rechargement..."):
-                if reload_heavy_libraries():
-                    st.success("✅ Rechargées avec succès !")
-                    st.rerun()
-                else:
-                    st.error("❌ Échec du rechargement")
     st.sidebar.subheader("Mots de passe")
     
     for idx, pwd in enumerate(st.session_state.user_passwords):
@@ -908,6 +899,16 @@ def main_app():
         st.write(f"GitHub : **{'✅ Configuré' if GITHUB_TOKEN and GITHUB_REPO else '❌ Non configuré'}**")
         st.write(f"OpenCV : **{'✅' if CV2_AVAILABLE else '❌'}**")
         st.write(f"MediaPipe : **{'✅' if MEDIAPIPE_AVAILABLE else '❌'}**")
+
+        if not CV2_AVAILABLE or not MEDIAPIPE_AVAILABLE:
+            st.warning("⚠️ Bibliothèques non chargées")
+            if st.button("🔄 Recharger les bibliothèques"):
+                with st.spinner("Rechargement..."):
+                    if reload_heavy_libraries():
+                        st.success("✅ Rechargées avec succès !")
+                        st.rerun()
+                    else:
+                        st.error("❌ Échec du rechargement")
         
         if st.button("🔄 Recharger depuis GitHub"):
             st.session_state.messages = load_messages()
