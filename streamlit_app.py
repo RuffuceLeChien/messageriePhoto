@@ -7,6 +7,8 @@ from datetime import datetime
 import base64
 import requests
 
+# Configuration de la page
+st.set_page_config(page_title="Messagerie", page_icon="📸", layout="centered")
 
 @st.cache_resource
 def load_opencv():
@@ -33,8 +35,7 @@ def load_mediapipe():
 cv2, np, CV2_AVAILABLE = load_opencv()
 mp, MEDIAPIPE_AVAILABLE = load_mediapipe()
 
-# Configuration de la page
-st.set_page_config(page_title="Messagerie", page_icon="📸", layout="centered")
+
 
 # CSS pour un design moderne et élégant
 st.markdown("""
