@@ -420,7 +420,7 @@ def send_telegram_notification(sender, has_text):
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         response = requests.post(url, json={
             "chat_id": TELEGRAM_GROUP_CHAT_ID,
-            "text": message
+            "text": base_message
         }, timeout=5)
         
         return response.status_code == 200
