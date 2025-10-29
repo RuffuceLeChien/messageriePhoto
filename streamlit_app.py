@@ -7,27 +7,31 @@ from datetime import datetime
 import base64
 import requests
 
-# Tentative d'import de Gemini (optionnel)
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
 
-# Tentative d'import de OpenCV pour détection de visage
-try:
-    import cv2
-    import numpy as np
-    CV2_AVAILABLE = True
-except ImportError:
-    CV2_AVAILABLE = False
+@st.cache_resource
+def load_opencv():
+    """Charge OpenCV et NumPy avec cache persistant"""
+    try:
+        import cv2
+        import numpy as np
+        return cv2, np, True
+    except Exception as e:
+        st.error(f"Erreur chargement OpenCV: {e}")
+        return None, None, False
 
-# Tentative d'import de MediaPipe pour détection de mains et pose
-try:
-    import mediapipe as mp
-    MEDIAPIPE_AVAILABLE = True
-except ImportError:
-    MEDIAPIPE_AVAILABLE = False
+@st.cache_resource
+def load_mediapipe():
+    """Charge MediaPipe avec cache persistant"""
+    try:
+        import mediapipe as mp
+        return mp, True
+    except Exception as e:
+        st.error(f"Erreur chargement MediaPipe: {e}")
+        return None, False
+
+# Charger les bibliothèques
+cv2, np, CV2_AVAILABLE = load_opencv()
+mp, MEDIAPIPE_AVAILABLE = load_mediapipe()
 
 # Configuration de la page
 st.set_page_config(page_title="Messagerie", page_icon="📸", layout="centered")
